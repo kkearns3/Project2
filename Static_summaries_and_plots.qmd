@@ -1,0 +1,64 @@
+---
+title: "Static Summaries and Plots"
+format: html
+---
+
+
+Libraries
+```{r}
+library(tidyverse)
+library(readr)
+library(tidycensus)
+```
+
+## Data
+
+Read in csv files from zipped directory
+```{r}
+census <- unzip("data/csv_pnc.zip", files = c("psam_p37.csv")) |> 
+  read_csv()
+```
+
+
+Verify the data is correct by comparing to the ACS "PUMS Estimates for User Verification" (saved to the data folder, "pums_estimates_23.csv")
+
+https://www.census.gov/content/dam/Census/library/publications/2021/acs/acs_pums_handbook_2021_ch01.pdf
+
+## Data dictionary
+
+- Reference for values for all of the variables in the PUMS data
+- Blank values in the data dictionary are represented by a series of b's, with the number of b's determined by the length of the field. These need to be changed to actual blank values for use with the PUMS data
+- csv does not have headers
+- the first column in the csv has two possible values, NAME or VAL
+    + NAME rows have 5 columns, with column 2 being the variable name and column 5 being the descriptive label for that variable
+    + VAL rows have 7 columns, and links a set of min and max values (columns 5 and 6) with a meaningful descriptive value (column 7)
+- Data dictionary will be read in as one file, and then split into two separate tibbles to have the names and values separate
+
+```{r}
+# read in the entire data dictionary
+data_dictionary <- read.csv("data/PUMS_Data_Dictionary_2018-2022.csv",
+                            header = FALSE,
+                            col.names = c("row_type", "variable_name", "data_type", "length",
+                                          "value", "value_max", "data_label"),
+                            na.strings = c("NA", "")) |>
+  as_tibble()
+
+# data dictionary for names
+data_dictionary_names <- data_dictionary |>
+  filter(row_type == "NAME") |>
+  select(variable_name, value)
+
+# data dictionary for values
+data_dictionary_values <- data_dictionary |>
+  filter(row_type == "VAL") |>
+  select(variable_name, data_type, length, value, value_max, data_label)
+
+# filter on the missing values....trying to decide what to do with them...
+data_dictionary_values |>
+  filter(value == strrep(rep("b", length(data_dictionary_values$value)), 
+                         length))
+
+```
+
+
+
