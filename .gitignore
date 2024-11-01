@@ -7,3 +7,5 @@ archive
 psam_p37.csv
 acs_pums_handbook_2021.pdf
 2023ACS_PUMS_User_Guide.pdf
+ignore
+testing.R

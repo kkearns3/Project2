@@ -96,7 +96,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p>Libraries</p>
+<p>Libraries and dependencies</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
@@ -112,27 +112,44 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readr)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidycensus)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># library(tidycensus)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"helpers.R"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="data" class="level2">
 <h2 class="anchored" data-anchor-id="data">Data</h2>
-<p>Read in csv files from zipped directory</p>
+<ul>
+<li>Public Use Microdata Sample (PUMS) data obtained from the American Community Survey (ACS), whose results come from around 1% of the population in the US (User Guide 4)</li>
+<li>This app contains data for North Carolina, 2023</li>
+<li>Zipped file downloaded from FTP site: https://www2.census.gov/programs-surveys/acs/data/pums/2023/1-Year/</li>
+<li>There is a Margin of Error (MOE) associated with PUMS, as PUMS data are produced via sampling from the full ACS, and some values have been anonymized (User Guide 4)</li>
+<li>PWGTP is the weighting variable that allows making estimates for the entire population based on the PUMS sample</li>
+<li>PWGTP1-PWGTP80 are for calculating margin of error for the PUMS sample
+<ul>
+<li>Variance formula provided by the User Guide: VAR(x) = (4/80)*sum{(x_r - x)^2}, where the sum is from 1 to 80 for each of the 80 replicate weights, and x_r are the estimates using each replicate weight, and x is the estimate using PWGTP</li>
+</ul></li>
+</ul>
+<p>Read in csv files from zipped directory - read in as character, use helper function to assign appropriate column types and values</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>census <span class="ot">&lt;-</span> <span class="fu">unzip</span>(<span class="st">"data/csv_pnc.zip"</span>, <span class="at">files =</span> <span class="fu">c</span>(<span class="st">"psam_p37.csv"</span>)) <span class="sc">|&gt;</span> </span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">read_csv</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">read_csv</span>(<span class="at">col_types =</span> <span class="fu">cols</span>(<span class="at">.default =</span> <span class="st">"c"</span>),</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>           <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Verify the data is correct by comparing to the ACS “PUMS Estimates for User Verification” (saved to the data folder, “pums_estimates_23.csv”)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>pums_estimates <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/pums_estimates_23.csv"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(STATE <span class="sc">==</span> <span class="dv">37</span>) <span class="co">#north carolina</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Rows: 495490 Columns: 290
+<pre><code>Rows: 1696 Columns: 6
 ── Column specification ────────────────────────────────────────────────────────
 Delimiter: ","
-chr  (27): RT, SERIALNO, SPORDER, PUMA10, PUMA20, JWTRNS, SCHG, SCHL, ANC1P,...
-dbl (263): DIVISION, REGION, ST, ADJINC, PWGTP, AGEP, CIT, CITWP, COW, DDRS,...
+chr (3): STATE, STATENAME, CHARACTERISTIC
+dbl (3): PUMS_EST_23, PUMS_SE_23, PUMS_MOE_23
 
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
 </div>
 </div>
-<p>Verify the data is correct by comparing to the ACS “PUMS Estimates for User Verification” (saved to the data folder, “pums_estimates_23.csv”)</p>
-<p>https://www.census.gov/content/dam/Census/library/publications/2021/acs/acs_pums_handbook_2021_ch01.pdf</p>
 </section>
 <section id="data-dictionary" class="level2">
 <h2 class="anchored" data-anchor-id="data-dictionary">Data dictionary</h2>
@@ -148,23 +165,218 @@ dbl (263): DIVISION, REGION, ST, ADJINC, PWGTP, AGEP, CIT, CITWP, COW, DDRS,...
 <li>Data dictionary will be read in as one file, and then split into two separate tibbles to have the names and values separate</li>
 </ul>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># read in the entire data dictionary</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>data_dictionary <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"data/PUMS_Data_Dictionary_2018-2022.csv"</span>,</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>                            <span class="at">header =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>                            <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"row_type"</span>, <span class="st">"variable_name"</span>, <span class="st">"data_type"</span>, <span class="st">"length"</span>,</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>                                          <span class="st">"value"</span>, <span class="st">"value_max"</span>, <span class="st">"data_label"</span>),</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>                            <span class="at">na.strings =</span> <span class="fu">c</span>(<span class="st">"NA"</span>, <span class="st">""</span>)) <span class="sc">|&gt;</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>()</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># data dictionary for names</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>data_dictionary_names <span class="ot">&lt;-</span> data_dictionary <span class="sc">|&gt;</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(row_type <span class="sc">==</span> <span class="st">"NAME"</span>) <span class="sc">|&gt;</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(variable_name, value)</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co"># data dictionary for values</span></span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>data_dictionary_values <span class="ot">&lt;-</span> data_dictionary <span class="sc">|&gt;</span></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(row_type <span class="sc">==</span> <span class="st">"VAL"</span>) <span class="sc">|&gt;</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(variable_name, data_type, length, value, value_max, data_label)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># read in the entire data dictionary (select distinct due to duplicated rows)</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>data_dictionary <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"data/PUMS_Data_Dictionary_2023.csv"</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                            <span class="at">header =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                            <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"row_type"</span>, <span class="st">"variable_name"</span>, <span class="st">"data_type"</span>, <span class="st">"length"</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                                          <span class="st">"value"</span>, <span class="st">"value_max"</span>, <span class="st">"data_label"</span>),</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>                            <span class="at">na.strings =</span> <span class="fu">c</span>(<span class="st">"NA"</span>, <span class="st">""</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>()</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co"># data dictionary for names</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>data_dictionary_names <span class="ot">&lt;-</span> data_dictionary <span class="sc">|&gt;</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(row_type <span class="sc">==</span> <span class="st">"NAME"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(variable_name, value)</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co"># data dictionary for values</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>data_dictionary_values <span class="ot">&lt;-</span> data_dictionary <span class="sc">|&gt;</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(row_type <span class="sc">==</span> <span class="st">"VAL"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(variable_name, data_type, length, value, value_max, data_label)</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co"># filter on the missing values....trying to decide what to do with them...</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>data_dictionary_values <span class="sc">|&gt;</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(value <span class="sc">==</span> <span class="fu">strrep</span>(<span class="fu">rep</span>(<span class="st">"b"</span>, <span class="fu">length</span>(data_dictionary_values<span class="sc">$</span>value)), </span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>                         length))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 235 × 6
+   variable_name data_type length value value_max data_label                    
+   &lt;chr&gt;         &lt;chr&gt;      &lt;int&gt; &lt;chr&gt; &lt;chr&gt;     &lt;chr&gt;                         
+ 1 ACCESSINET    C              1 b     b         N/A (GQ/vacant)               
+ 2 ACR           C              1 b     b         N/A (GQ/not a one-family hous…
+ 3 AGS           C              1 b     b         N/A (GQ/vacant/not a one fami…
+ 4 BATH          C              1 b     b         N/A (GQ)                      
+ 5 BDSP          N              2 bb    bb        N/A (GQ)                      
+ 6 BLD           C              2 bb    bb        N/A (GQ)                      
+ 7 BROADBND      C              1 b     b         N/A (GQ/vacant/no paid access…
+ 8 COMPOTHX      C              1 b     b         N/A (GQ/vacant)               
+ 9 CONP          N              4 bbbb  bbbb      N/A (GQ/vacant units/not owne…
+10 DIALUP        C              1 b     b         N/A (GQ/vacant/no paid access…
+# ℹ 225 more rows</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>data_dictionary_values</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 5,385 × 6
+   variable_name data_type length value         value_max     data_label        
+   &lt;chr&gt;         &lt;chr&gt;      &lt;int&gt; &lt;chr&gt;         &lt;chr&gt;         &lt;chr&gt;             
+ 1 RT            C              1 H             H             Housing Record or…
+ 2 RT            C              1 P             P             Person Record     
+ 3 SERIALNO      C             13 2023GQ0000001 2023GQ9999999 GQ Unique identif…
+ 4 SERIALNO      C             13 2023HU0000001 2023HU9999999 HU Unique identif…
+ 5 DIVISION      C              1 0             0             Puerto Rico       
+ 6 DIVISION      C              1 1             1             New England (Nort…
+ 7 DIVISION      C              1 2             2             Middle Atlantic (…
+ 8 DIVISION      C              1 3             3             East North Centra…
+ 9 DIVISION      C              1 4             4             West North Centra…
+10 DIVISION      C              1 5             5             South Atlantic (S…
+# ℹ 5,375 more rows</code></pre>
+</div>
+</div>
+<p>apply the helper function to each column.</p>
+<p><strong>When everything is working, change the census_clean to just census</strong></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>census_clean <span class="ot">&lt;-</span> census</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(c <span class="cf">in</span> <span class="fu">colnames</span>(census)) {</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  census_clean[c] <span class="ot">&lt;-</span> <span class="fu">clean_census_columns</span>(census[c])</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>census_clean</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 111,920 × 287
+   RT      SERIALNO DIVISION SPORDER PUMA  REGION STATE ADJINC PWGTP  AGEP CIT  
+   &lt;fct&gt;   &lt;chr&gt;    &lt;fct&gt;      &lt;dbl&gt; &lt;chr&gt; &lt;fct&gt;  &lt;fct&gt; &lt;fct&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;
+ 1 Person… 2023GQ0… South A…       1 00100 South  Nort… 2023 …    62    18 Born…
+ 2 Person… 2023GQ0… South A…       1 03104 South  Nort… 2023 …    94    93 Born…
+ 3 Person… 2023GQ0… South A…       1 04501 South  Nort… 2023 …    73    22 Born…
+ 4 Person… 2023GQ0… South A…       1 00800 South  Nort… 2023 …    63    39 Born…
+ 5 Person… 2023GQ0… South A…       1 01201 South  Nort… 2023 …    50    19 Born…
+ 6 Person… 2023GQ0… South A…       1 01203 South  Nort… 2023 …    41    39 Born…
+ 7 Person… 2023GQ0… South A…       1 01900 South  Nort… 2023 …    16    26 Born…
+ 8 Person… 2023GQ0… South A…       1 02500 South  Nort… 2023 …    10    19 Born…
+ 9 Person… 2023GQ0… South A…       1 01201 South  Nort… 2023 …    53    34 Born…
+10 Person… 2023GQ0… South A…       1 02600 South  Nort… 2023 …     7    19 Born…
+# ℹ 111,910 more rows
+# ℹ 276 more variables: CITWP &lt;dbl&gt;, COW &lt;fct&gt;, DDRS &lt;fct&gt;, DEAR &lt;fct&gt;,
+#   DEYE &lt;fct&gt;, DOUT &lt;fct&gt;, DPHY &lt;fct&gt;, DRAT &lt;fct&gt;, DRATX &lt;fct&gt;, DREM &lt;fct&gt;,
+#   ENG &lt;fct&gt;, FER &lt;fct&gt;, GCL &lt;fct&gt;, GCM &lt;fct&gt;, GCR &lt;fct&gt;, HIMRKS &lt;fct&gt;,
+#   HINS1 &lt;fct&gt;, HINS2 &lt;fct&gt;, HINS3 &lt;fct&gt;, HINS4 &lt;fct&gt;, HINS5 &lt;fct&gt;,
+#   HINS6 &lt;fct&gt;, HINS7 &lt;fct&gt;, INTP &lt;dbl&gt;, JWMNP &lt;dbl&gt;, JWRIP &lt;dbl&gt;,
+#   JWTRNS &lt;fct&gt;, LANX &lt;fct&gt;, MAR &lt;fct&gt;, MARHD &lt;fct&gt;, MARHM &lt;fct&gt;, …</code></pre>
+</div>
+</div>
+</section>
+<section id="margin-of-error-calculations" class="level2">
+<h2 class="anchored" data-anchor-id="margin-of-error-calculations">Margin of Error Calculations</h2>
+<p>Creating a helper function for the variance, standard deviation, and 90% confidence level margin of error</p>
+<ul>
+<li>First, work through an example</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># main estimate (one-way contingency table on Sex)</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>totals <span class="ot">&lt;-</span> census_clean <span class="sc">|&gt;</span> </span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SEX) <span class="sc">|&gt;</span> </span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">estimate =</span> <span class="fu">sum</span>(PWGTP))</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co"># same estimate on each of the 80 replicate weights</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>totals_r <span class="ot">&lt;-</span> census_clean <span class="sc">|&gt;</span> </span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SEX) <span class="sc">|&gt;</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="fu">across</span>(PWGTP1<span class="sc">:</span>PWGTP80, sum))</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate the squared differences between the estimate and the replicated estimates</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a> squared_diffs <span class="ot">&lt;-</span> totals <span class="sc">|&gt;</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">inner_join</span>(totals_r) <span class="sc">|&gt;</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(PWGTP1<span class="sc">:</span>PWGTP80, </span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>                \(x) (estimate <span class="sc">-</span> x)<span class="sc">^</span><span class="dv">2</span>,</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>                <span class="at">.names =</span> <span class="st">"sqdiff_{.col}"</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(SEX)`</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># take the sum, multiply by 4/80 to create vector of variances</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>variance <span class="ot">&lt;-</span> squared_diffs <span class="sc">|&gt;</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(sqdiff_PWGTP1<span class="sc">:</span>sqdiff_PWGTP80) <span class="sc">|&gt;</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">apply</span>(<span class="at">MARGIN =</span> <span class="dv">1</span>, <span class="at">FUN =</span> \(x) <span class="fu">sum</span>(x)<span class="sc">*</span>(<span class="dv">4</span><span class="sc">/</span><span class="dv">80</span>))</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="co"># add the variance vector as a column on the totals</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>totals<span class="sc">$</span>variance <span class="ot">&lt;-</span> variance</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>totals <span class="ot">&lt;-</span> totals <span class="sc">|&gt;</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">variance =</span> variance,</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">std_err =</span> <span class="fu">round</span>(<span class="fu">sqrt</span>(variance)),</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>         <span class="at">margin_of_error =</span> <span class="fu">round</span>(<span class="fu">sqrt</span>(variance) <span class="sc">*</span> <span class="fl">1.645</span>))</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>totals</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 5
+  SEX    estimate  variance std_err margin_of_error
+  &lt;fct&gt;     &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;           &lt;dbl&gt;
+1 Male    5306620 28850589.    5371            8836
+2 Female  5528871 28850589.    5371            8836</code></pre>
+</div>
+</div>
+<p>Check accuracy</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>pums_estimates <span class="sc">|&gt;</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(CHARACTERISTIC <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"Total population"</span>,</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>                               <span class="st">"Total males (SEX=1)"</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>                               <span class="st">"Total females (SEX=2)"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 6
+  STATE STATENAME      CHARACTERISTIC        PUMS_EST_23 PUMS_SE_23 PUMS_MOE_23
+  &lt;chr&gt; &lt;chr&gt;          &lt;chr&gt;                       &lt;dbl&gt;      &lt;dbl&gt;       &lt;dbl&gt;
+1 37    North Carolina Total population         10835491          0           0
+2 37    North Carolina Total males (SEX=1)       5306620       5371        8836
+3 37    North Carolina Total females (SEX=2)     5528871       5371        8836</code></pre>
+</div>
+</div>
+<section id="one-way-contingency-tables" class="level3">
+<h3 class="anchored" data-anchor-id="one-way-contingency-tables">One-way contingency tables</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>census_clean <span class="sc">|&gt;</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(SEX) <span class="sc">|&gt;</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">count =</span> <span class="fu">sum</span>(PWGTP))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 2
+  SEX      count
+  &lt;fct&gt;    &lt;dbl&gt;
+1 Male   5306620
+2 Female 5528871</code></pre>
+</div>
+</div>
+</section>
+<section id="two-way-contingency-tables" class="level3">
+<h3 class="anchored" data-anchor-id="two-way-contingency-tables">Two-way contingency tables</h3>
+</section>
+<section id="section" class="level3">
+<h3 class="anchored" data-anchor-id="section"></h3>
+</section>
+</section>
+<section id="plots" class="level2">
+<h2 class="anchored" data-anchor-id="plots">Plots</h2>
+<p>Map of North Carolina</p>
+<ul>
+<li>Used tigris package to retrieve PUMAS boundaries</li>
+<li>read tidyverse documentation to get the basics of the plot using census data “https://walker-data.com/census-r/mapping-census-data-with-r.html”</li>
+<li>referenced “https://www.paparkerstat.com/post/plotting-pumas-in-r/” for help in getting the plot to work</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># get geometric info for the PUMAs</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>pumas <span class="ot">&lt;-</span> tigris<span class="sc">::</span><span class="fu">pumas</span>(<span class="at">state =</span> <span class="st">"NC"</span>, </span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>                       <span class="at">year =</span> <span class="st">"2023"</span>, </span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>                       <span class="at">progress_bar =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co"># aggregate census data</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>census_aggregate <span class="ot">&lt;-</span> census_clean <span class="sc">|&gt;</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(PUMA, PWGTP) <span class="sc">|&gt;</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(PUMA) <span class="sc">|&gt;</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">total =</span> <span class="fu">sum</span>(PWGTP))</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="co"># join to census data</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>census_map <span class="ot">&lt;-</span> pumas <span class="sc">|&gt;</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(census_aggregate, <span class="fu">join_by</span>(PUMACE20 <span class="sc">==</span> PUMA))</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="co"># plot data</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(census_map) <span class="sc">+</span></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="fu">aes</span>(<span class="at">fill =</span> total))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="Static_summaries_and_plots_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
 </div>
 </section>
 

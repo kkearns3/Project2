@@ -4,25 +4,73 @@ format: html
 ---
 
 
-Libraries
+Libraries and dependencies
 ```{r}
 library(tidyverse)
 library(readr)
-library(tidycensus)
+# library(tidycensus)
+
+source("helpers.R")
 ```
 
 ## Data
 
-Read in csv files from zipped directory
+- Public Use Microdata Sample (PUMS) data obtained from the American Community Survey (ACS), whose results come from around 1% of the population in the US (User Guide 4)
+- This app contains data for North Carolina, 2023
+- Zipped file downloaded from FTP site: https://www2.census.gov/programs-surveys/acs/data/pums/2023/1-Year/
+- There is a Margin of Error (MOE) associated with PUMS, as PUMS data are produced via sampling from the full ACS, and some values have been anonymized (User Guide 4)
+- PWGTP is the weighting variable for the person file that allows making estimates for the entire population based on the PUMS sample
+- PWGTP1-PWGTP80 are for calculating margin of error for the PUMS sample
+    + Variance formula provided by the User Guide: VAR(x) = (4/80)*sum{(x_r - x)^2}, where the sum is from 1 to 80 for each of the 80 replicate weights, and x_r are the estimates using each replicate weight, and x is the estimate using PWGTP
+- Incomes and earnings need to be adjusted for inflation to make them aligned to 2023 dollars. 
+    + ADJINC should be divided by 1,000,000 and multiplied by the PUMS variable
+    + Housing unit variables: FINCP, HINCP
+    + Person file variables: INTP, OIP, PAP, PERNP, PINCP, RETP, SEMP, SSIP, SSP, WAGP
+- Housing Dollar Inflation Factor
+    + ADJHSG should be divided by 1,000,000 and multiplied by the PUMS variable
+    + Housing unit variables: ONP, ELEP, FULP, GASP, GRNTP, INSP, MHP, MRGP, SMOCP, RNTP, SMP, TAXAMT, VALP, WATP
+    + ADJHSG is 1,000,000 for 2023, so technically we don't have to adjust these
+
+
+Read in csv files from zipped directory - read in as character, use helper function to assign appropriate column types and values
+
+**Person files**
+
+- Note: Dropping "RT" from both data sets because this is "row type", and will be different in the two files. I don't want it to interfere with a join. Even though we only have to join on SERIALNO, doing so creates a lot of duplicated fields (DIVISION, ST, etc.). It is less error-prone to just join on all the matching fields than to drop all the duplicated fields from one data set.
 ```{r}
-census <- unzip("data/csv_pnc.zip", files = c("psam_p37.csv")) |> 
-  read_csv()
+person_data <- unzip("data/csv_pnc.zip", files = c("psam_p37.csv")) |> 
+  read_csv(col_types = cols(.default = "c"),
+           show_col_types = FALSE) |>
+  select(-RT)
+```
+
+**Housing files**
+
+```{r}
+housing_data <- unzip("data/csv_hnc.zip", files = c("psam_h37.csv")) |> 
+  read_csv(col_types = cols(.default = "c"),
+           show_col_types = FALSE) |>
+  select(-RT)
+```
+
+**Combine data**
+
+```{r}
+census <- housing_data |>
+  inner_join(person_data)
+
+census
 ```
 
 
 Verify the data is correct by comparing to the ACS "PUMS Estimates for User Verification" (saved to the data folder, "pums_estimates_23.csv")
 
-https://www.census.gov/content/dam/Census/library/publications/2021/acs/acs_pums_handbook_2021_ch01.pdf
+```{r}
+pums_estimates <- read_csv("data/pums_estimates_23.csv") |>
+  filter(STATE == 37) #North Carolina
+
+```
+
 
 ## Data dictionary
 
@@ -35,13 +83,22 @@ https://www.census.gov/content/dam/Census/library/publications/2021/acs/acs_pums
 - Data dictionary will be read in as one file, and then split into two separate tibbles to have the names and values separate
 
 ```{r}
-# read in the entire data dictionary
-data_dictionary <- read.csv("data/PUMS_Data_Dictionary_2018-2022.csv",
+# read in the entire data dictionary (select distinct due to duplicated rows)
+data_dictionary <- read.csv("data/PUMS_Data_Dictionary_2023.csv",
                             header = FALSE,
                             col.names = c("row_type", "variable_name", "data_type", "length",
                                           "value", "value_max", "data_label"),
                             na.strings = c("NA", "")) |>
-  as_tibble()
+  as_tibble() |>
+  distinct()
+
+#### Don't need the following couple sets of code if using both person and housing files
+# create a list of variables that is in the NC census data (there are fewer variables in the actual PUMS data than there is in the data dictionary)
+# var_list <- tibble(variable_name = names(census))
+# 
+# # keep all variables in data_dictionary that have a match in the PUMS (var_list)
+# data_dictionary <- data_dictionary |>
+#   semi_join(var_list, by = "variable_name")
 
 # data dictionary for names
 data_dictionary_names <- data_dictionary |>
@@ -57,6 +114,201 @@ data_dictionary_values <- data_dictionary |>
 data_dictionary_values |>
   filter(value == strrep(rep("b", length(data_dictionary_values$value)), 
                          length))
+
+data_dictionary_names
+```
+
+```{r}
+data_dictionary_values
+```
+
+
+apply the helper function to each column. 
+
+**When everything is working, change the census_clean to just census**
+
+```{r}
+#census_clean <- census
+
+for(c in colnames(census)) {
+  census[c] <- clean_census_columns(census[c])
+}
+
+```
+
+```{r}
+census |>
+  group_by(HHLDRHISP) |>
+  summarise(households = sum(WGTP)) |>
+  arrange(desc(households))
+```
+
+
+## Margin of Error Calculations
+
+Need to create a helper function for the variance, standard deviation, and 90% confidence level margin of error
+
+- First, work through an example
+
+```{r}
+
+# main estimate (one-way contingency table on Sex)
+totals <- census |> 
+  group_by(SEX) |> 
+  summarize(estimate = sum(PWGTP))
+
+# same estimate on each of the 80 replicate weights
+totals_r <- census |> 
+  group_by(SEX) |>
+  summarize(across(PWGTP1:PWGTP80, sum))
+
+# calculate the squared differences between the estimate and the replicated estimates
+ squared_diffs <- totals |>
+  inner_join(totals_r) |>
+  mutate(across(PWGTP1:PWGTP80, 
+                \(x) (estimate - x)^2,
+                .names = "sqdiff_{.col}")) 
+
+# take the sum, multiply by 4/80 to create vector of variances
+variance <- squared_diffs |>
+  select(sqdiff_PWGTP1:sqdiff_PWGTP80) |>
+  apply(MARGIN = 1, FUN = \(x) sum(x)*(4/80))
+
+# add the variance vector as a column on the totals
+totals$variance <- variance
+
+totals <- totals |>
+  mutate(variance = variance,
+         std_err = round(sqrt(variance)),
+         margin_of_error = round(sqrt(variance) * 1.645))
+
+totals
+```
+
+Check accuracy
+
+```{r}
+pums_estimates |>
+  filter(CHARACTERISTIC %in% c("Total population",
+                               "Total males (SEX=1)",
+                               "Total females (SEX=2)"))
+```
+
+Can this work for the custom mean function, which also need to take in PWGTP?
+
+```{r}
+# HINCP: Household income (past 12 months, use ADJINC to adjust HINCP to constant dollars)
+
+# main estimate (one-way contingency table on Sex)
+totals <- census |> 
+  group_by(SEX) |> 
+  drop_na(SEX, HINCP) |>
+  summarize(estimate = census_mean(HINCP, PWGTP))
+
+# same estimate on each of the 80 replicate weights
+totals_r <- census |> 
+  group_by(SEX) |>
+  drop_na(SEX, HINCP) |>
+  summarize(across(PWGTP1:PWGTP80, \(x) census_mean(HINCP, x)))
+
+
+# calculate the squared differences between the estimate and the replicated estimates
+ squared_diffs <- totals |>
+  inner_join(totals_r) |>
+  mutate(across(PWGTP1:PWGTP80, 
+                \(x) (estimate - x)^2,
+                .names = "sqdiff_{.col}")) 
+
+# take the sum, multiply by 4/80 to create vector of variances
+variance <- squared_diffs |>
+  select(sqdiff_PWGTP1:sqdiff_PWGTP80) |>
+  apply(MARGIN = 1, FUN = \(x) sum(x)*(4/80))
+
+# add the variance vector as a column on the totals
+totals$variance <- variance
+
+totals <- totals |>
+  mutate(variance = variance,
+         std_err = round(sqrt(variance)),
+         margin_of_error = round(sqrt(variance) * 1.645))
+
+totals
+```
+It works! Hooray!!! Need to put the above into a function
+
+### One-way contingency table
+
+```{r}
+census |>
+  group_by(HHLDRHISP) |>
+  filter(!is.na(HHLDRHISP)) |>
+  summarize(households = sum(WGTP)) |>
+  arrange(desc(households))
+```
+
+
+### Two-way contingency tables
+
+Access to the Internet by SNAP status
+
+```{r}
+census |>
+  group_by(ACCESSINET, FS) |>
+  filter(!is.na(ACCESSINET) & !is.na(FS)) |>
+  summarize(individuals = sum(PWGTP)) |>
+  pivot_wider(names_from = FS, values_from = individuals)
+
+# FS = "Yearly food stamp/Supplemental Nutrition Assistance Program (SNAP) recipiency"
+
+```
+
+
+### Numerical summaries
+
+Basic summary
+
+```{r}
+census |>
+  group_by(YRBLT) |>
+  drop_na(YRBLT, INSP) |>
+  summarize(mean = census_mean(INSP, PWGTP),
+            median = census_median(INSP, PWGTP),
+            std_err = census_error(INSP, PWGTP, PWGTP1:PWGTP80, "std_err"),
+            moe = census_error(INSP, PWGTP, PWGTP1:PWGTP80, "margin_of_error"))
+
+# INSP: Fire/hazard/flood insurance (yearly amount, use ADJHSG to adjust INSP to constant dollars)
+```
+
+
+## Plots
+
+
+
+### Map of North Carolina
+
+- Used tigris package to retrieve PUMAS boundaries
+- read tidyverse documentation to get the basics of the plot using census data "https://walker-data.com/census-r/mapping-census-data-with-r.html"
+- referenced "https://www.paparkerstat.com/post/plotting-pumas-in-r/" for help in getting the plot to work
+
+```{r}
+# get geometric info for the PUMAs
+pumas <- tigris::pumas(state = "NC", 
+                       year = "2023", 
+                       progress_bar = FALSE)
+
+# aggregate census data
+census_aggregate <- census_clean |>
+  select(PUMA, PWGTP) |>
+  group_by(PUMA) |>
+  summarize(total = sum(PWGTP))
+
+# join to census data
+census_map <- pumas |>
+  left_join(census_aggregate, join_by(PUMACE20 == PUMA))
+
+# plot data
+ggplot(census_map) +
+  geom_sf(aes(fill = total))
 
 ```
 
