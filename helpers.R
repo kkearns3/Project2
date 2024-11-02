@@ -98,29 +98,24 @@ census_median <- function(var, weight) {
 #  - census_sd(INSP, PWGTP, PWGTP1:PWGTP80)
 #  - census_moe(INSP, PWGTP, PWGTP1:PWGTP80)
 
-# test:
 
-#census_test <- census |>
-#  filter(!is.na(INSP)) |>
-#  select(SEX, INSP, PWGTP, PWGTP1:PWGTP80) |>
-#  slice(1:20)
-
-#var <- census_test |> select(INSP)
-#weight <- census_test |> select(PWGTP)
-#rep_weights <- census_test |> select(PWGTP1:PWGTP80)
-
-census_error <- function(var, weight, rep_weights, error_stat){
+census_error <- function(df, group_var){
+  
+  # get necessary vectors
+  var <- df |> select({{group_var}})
+  weight <- df |> select(PWGTP)
+  rep_weights <- df |> select(PWGTP1:PWGTP80)
   
   # main estimate of the mean based on the weight
   estimate <- census_mean(var, weight)
   
   # same estimate on each of the 80 replicate weights
   estimate_r <- rep_weights |>
-    summarize(across(everything(), \(x) census_mean(var, x)))
+    summarize(across(PWGTP1:PWGTP80, \(x) census_mean(var, x)))
   
   # calculate the squared differences between the estimate and the replicated estimates
   squared_diffs <- estimate_r |>
-    mutate(across(everything(), 
+    mutate(across(PWGTP1:PWGTP80, 
                   \(x) (estimate - x)^2,
                   .names = "sqdiff_{.col}")) 
   
@@ -137,7 +132,8 @@ census_error <- function(var, weight, rep_weights, error_stat){
     mutate(std_err = round(sqrt(variance)),
            margin_of_error = round(sqrt(variance) * 1.645))
   
-  # return the relevant stat
-  return(as.numeric(error[[error_stat]]))
+  # return error stats
+  return(error)
   
 }
+

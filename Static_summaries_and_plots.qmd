@@ -1,8 +1,9 @@
 ---
-title: "Static Summaries and Plots"
+title: "Project 2"
 format: html
+toc: TRUE
 ---
-
+# Static Summaries and Plots
 
 Libraries and dependencies
 ```{r}
@@ -30,7 +31,9 @@ source("helpers.R")
     + ADJHSG should be divided by 1,000,000 and multiplied by the PUMS variable
     + Housing unit variables: ONP, ELEP, FULP, GASP, GRNTP, INSP, MHP, MRGP, SMOCP, RNTP, SMP, TAXAMT, VALP, WATP
     + ADJHSG is 1,000,000 for 2023, so technically we don't have to adjust these
-
+- It should be noted that while SERIALNO are unique in Housing data, they are not in the Person file (presumably because many households have more than one person)
+    + As such, all metrics are calculated based on individuals (using PWGTP), even if the characteristic chosen is measured at the housing level
+    + Therefore, certain metrics may be overestimated if the numerical data point is measured at the household level (e.g. property value), and a significant number of SERIALNO have more than one member in the household
 
 Read in csv files from zipped directory - read in as character, use helper function to assign appropriate column types and values
 
@@ -42,6 +45,10 @@ person_data <- unzip("data/csv_pnc.zip", files = c("psam_p37.csv")) |>
   read_csv(col_types = cols(.default = "c"),
            show_col_types = FALSE) |>
   select(-RT)
+
+# number of households with more than one member reported on survey
+person_data |> group_by(SERIALNO) |> summarize(count = n()) |> filter(count > 1) |>
+  summarize(multi_person_households = n(), total_individuals = sum(count))
 ```
 
 **Housing files**
@@ -143,6 +150,26 @@ census |>
   arrange(desc(households))
 ```
 
+## Useful Additional Columns
+
+```{r}
+# Adding age groups
+census <- census |>
+  mutate(Age_Group = case_when(
+    AGEP < 5 ~ "Age 0-4",
+    AGEP < 10 ~ "Age 5-9",
+    AGEP < 15 ~ "Age 10-14",
+    AGEP < 20 ~ "Age 15-19",
+    AGEP < 25 ~ "Age 20-24",
+    AGEP < 35 ~ "Age 25-34",
+    AGEP < 45 ~ "Age 35-44",
+    AGEP < 55 ~ "Age 45-54",
+    AGEP < 60 ~ "Age 55-59",
+    AGEP < 65 ~ "Age 60-64",
+    AGEP < 75 ~ "Age 65-74",
+    AGEP < 85 ~ "Age 75-84",
+    AGEP >= 85 ~ "Age 85 and over")) 
+```
 
 ## Margin of Error Calculations
 
@@ -200,8 +227,8 @@ Can this work for the custom mean function, which also need to take in PWGTP?
 # HINCP: Household income (past 12 months, use ADJINC to adjust HINCP to constant dollars)
 
 # main estimate (one-way contingency table on Sex)
-totals <- census |> 
-  group_by(SEX) |> 
+totals <- census |>
+  group_by(SEX) |>
   drop_na(SEX, HINCP) |>
   summarize(estimate = census_mean(HINCP, PWGTP))
 
@@ -242,8 +269,8 @@ It works! Hooray!!! Need to put the above into a function
 census |>
   group_by(HHLDRHISP) |>
   filter(!is.na(HHLDRHISP)) |>
-  summarize(households = sum(WGTP)) |>
-  arrange(desc(households))
+  summarize(individuals = sum(PWGTP)) |>
+  arrange(desc(individuals))
 ```
 
 
@@ -268,24 +295,35 @@ census |>
 Basic summary
 
 ```{r}
-census |>
+# INSP: Fire/hazard/flood insurance (yearly amount, use ADJHSG to adjust INSP to constant dollars)
+
+# main stats
+summary_main <- census |>
   group_by(YRBLT) |>
   drop_na(YRBLT, INSP) |>
   summarize(mean = census_mean(INSP, PWGTP),
-            median = census_median(INSP, PWGTP),
-            std_err = census_error(INSP, PWGTP, PWGTP1:PWGTP80, "std_err"),
-            moe = census_error(INSP, PWGTP, PWGTP1:PWGTP80, "margin_of_error"))
+            median = census_median(INSP, PWGTP))
 
-# INSP: Fire/hazard/flood insurance (yearly amount, use ADJHSG to adjust INSP to constant dollars)
+# error summary
+summary_error <- census |>
+  group_by(YRBLT) |>
+  drop_na(YRBLT, INSP) |>
+  do(census_error(., all_of("INSP")))
+
+# final summary - above two should end up with the same grouping variable values in the same order, but going to do a full join just in case
+num_summary <- summary_main |>
+  full_join(summary_error)
+
+num_summary
+
 ```
 
 
 ## Plots
 
-
-
 ### Map of North Carolina
 
+- Basic plot, not covered in class
 - Used tigris package to retrieve PUMAS boundaries
 - read tidyverse documentation to get the basics of the plot using census data "https://walker-data.com/census-r/mapping-census-data-with-r.html"
 - referenced "https://www.paparkerstat.com/post/plotting-pumas-in-r/" for help in getting the plot to work
@@ -297,7 +335,7 @@ pumas <- tigris::pumas(state = "NC",
                        progress_bar = FALSE)
 
 # aggregate census data
-census_aggregate <- census_clean |>
+census_aggregate <- census |>
   select(PUMA, PWGTP) |>
   group_by(PUMA) |>
   summarize(total = sum(PWGTP))
@@ -312,5 +350,154 @@ ggplot(census_map) +
 
 ```
 
+### Bar plot
 
+```{r}
+# values for labels
+x_label <- data_dictionary_names |>
+  filter(variable_name == "FS") |>
+  select(value)
+
+legend_label <- data_dictionary_names |>
+  filter(variable_name == "ACCESSINET") |>
+  select(value)
+
+g <- ggplot(data = census |> drop_na(FS, ACCESSINET), 
+            aes(x = FS, weight = PWGTP, fill = ACCESSINET))
+
+# layers (remove the legend from the base layer, keep the legend for the fill)
+g + geom_bar() +
+  ggtitle(paste0("Individuals with ", legend_label, "\n", " by ", x_label)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(x = x_label) +
+  scale_fill_discrete(legend_label) +
+  facet_wrap(vars(SEX))
+
+```
+
+
+### Scatter plot
+
+```{r}
+# VEH: Vehicles available (capacity of 1 ton or less)
+# VALP: Property Value
+# AGEP: Age
+
+# values for labels
+x_label <- data_dictionary_names |>
+  filter(variable_name == "INSP") |>
+  select(value)
+
+legend_label <- data_dictionary_names |>
+  filter(variable_name == "YRBLT") |>
+  select(value)
+
+# take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
+### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
+sample_size <- sample(1:nrow(census), 
+                      size = 1000,
+                      replace = TRUE,
+                      prob = census$PWGTP/sum(census$PWGTP))
+
+# sample for plotting (##NOTE: pull from the census subset, not the full data)
+census_sample <- census[sample_size, ]
+
+# base object with global assignments
+g <- ggplot(data = census_sample |> drop_na(AGEP, VALP, VEH), 
+            aes(x = AGEP, y = VALP, color = VEH, weight = PWGTP))
+
+g + geom_point() 
+
+```
+
+
+### Kernel density plot
+
+```{r}
+
+# values for labels
+x_label <- data_dictionary_names |>
+  filter(variable_name == "INSP") |>
+  select(value)
+
+legend_label <- data_dictionary_names |>
+  filter(variable_name == "YRBLT") |>
+  select(value)
+
+# base object with global assignments
+g <- ggplot(data = census |> drop_na(INSP, YRBLT), aes(x = INSP, weight = PWGTP))
+
+# density plot
+g + geom_density(aes(fill = YRBLT), kernel = "gaussian", alpha = 0.4) +
+  ggtitle("Test Title") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(x = x_label, y = "Individuals") +
+  scale_fill_discrete(legend_label)
+
+```
+
+### Violin plot
+
+```{r}
+census_data <- census |>
+  group_by(YRBLT) |>
+  drop_na(YRBLT, INSP) |>
+  #filter(!is.na(YRBLT) & !is.na(INSP)) |>
+  summarize(individuals = sum(PWGTP),
+            total = sum(INSP))
+
+# values for labels
+x_label <- data_dictionary_names |>
+  filter(variable_name == "INSP") |>
+  select(value)
+
+legend_label <- data_dictionary_names |>
+  filter(variable_name == "YRBLT") |>
+  select(value)
+
+# base object with global assignments
+g <- ggplot(data = census |> drop_na(INSP, YRBLT), aes(y = INSP, weight = PWGTP))
+
+g + geom_violin(aes(x = YRBLT, fill = YRBLT)) +
+  ggtitle("Test Title") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(x = x_label, y = "Individuals") +
+  scale_fill_discrete(legend_label)
+
+```
+
+### Heatmap
+
+```{r}
+# VEH: Vehicles available (capacity of 1 ton or less)
+# VALP: Property Value
+# AGEP: Age
+
+# values for labels
+x_label <- data_dictionary_names |>
+  filter(variable_name == "") |>
+  select(value)
+
+legend_label <- data_dictionary_names |>
+  filter(variable_name == "YRBLT") |>
+  select(value)
+
+# take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
+### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
+sample_size <- sample(1:nrow(census), 
+                      size = 1000,
+                      replace = TRUE,
+                      prob = census$PWGTP/sum(census$PWGTP))
+
+# sample for plotting (##NOTE: pull from the census subset, not the full data)
+census_sample <- census[sample_size, ]
+
+# base object with global assignments
+g <- ggplot(data = census_sample |> drop_na(Age_Group, VALP, VEH), 
+            aes(x = Age_Group, y = VEH, fill = VALP, weight = PWGTP))
+
+g + geom_tile()
+
+
+```
 
