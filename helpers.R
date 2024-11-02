@@ -1,5 +1,41 @@
 # Helper functions for project 2
 
+# dependent data sets 
+data_dictionary_names <- readRDS("dd_names.rds")
+data_dictionary_values <- readRDS("dd_values.rds")
+
+#### Variable lists for widgets
+
+# Categorical variables for summarizing/plotting
+cat_vars <- data_dictionary_names |>
+  filter(variable_name %in% c("AGEP_Grp", "BLD_Grp", "TEN", "VEH", "YRBLT_Grp", "HHLDRHISP",
+                              "HHL", "MV", "SEX", "NATIVITY", "ACCESSINET", "FS", "TYPEHUGQ")) |>
+  arrange(value)
+
+# Options for Categorical Subset 1
+cat_sub_1 <- census |>
+  filter(!is.na(YRBLT_Grp)) |>
+  select(YRBLT_Grp) |>
+  distinct() |>
+  arrange(YRBLT_Grp) |>
+  mutate(data_label = as.character(YRBLT_Grp))
+
+
+# Options for Categorical Subset 2
+cat_sub_2 <- census |>
+  filter(!is.na(BLD_Grp)) |>
+  select(BLD_Grp) |>
+  distinct() |>
+  arrange(BLD_Grp) |>
+  mutate(data_label = as.character(BLD_Grp))
+
+
+# Numeric variables for summarizing/plotting and subsetting
+num_vars <- data_dictionary_names |>
+  filter(variable_name %in% c("INSP", "AGEP", "MRGP", "VALP", "HINCP", "OCPIP", "PINCP")) |>
+  arrange(value)
+  
+
 # Helper function for assigning correct data type, and reassigning raw values to descriptive values using the PUMS data dictionary
 
 clean_census_columns <- function(data_column) {
@@ -31,13 +67,6 @@ clean_census_columns <- function(data_column) {
   
   return(data_column)
 }
-
-# Calculate the variance of the estimates generated from the sample weight (PWGTP), using the replicate weights (PWGTP1-PWGTP80). Formula from p. of the User Guide
-
-error_stats <- function(estimate) {
-  
-}
-
 
 
 # calculate weighted mean from vectors
@@ -93,11 +122,7 @@ census_median <- function(var, weight) {
   return(as.numeric(median))
 }
 
-# Margin of error - 
-# totals represents the estimate (i.e. the mean)
-#  - census_sd(INSP, PWGTP, PWGTP1:PWGTP80)
-#  - census_moe(INSP, PWGTP, PWGTP1:PWGTP80)
-
+# Error stats of the esimate (i.e. the mean): Margin of error, standard error 
 
 census_error <- function(df, group_var){
   

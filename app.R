@@ -11,6 +11,10 @@ library(tidyverse)
 library(readr)
 source("helpers.R")
 
+# Read required files
+data_dictionary_names <- readRDS("dd_names.rds")
+census <- readRDS("census.rds")
+
 # UI layout
 
 ui <- fluidPage(
@@ -25,23 +29,19 @@ ui <- fluidPage(
       h3("Choose Categories for Subset"),
       radioButtons("year_built",
                    "Year Built",
-                   selected = "all",
-                   choiceValues = c("all"),
-                   choiceNames = c("All")
+                   selected = "All",
+                   choices = append("All", cat_sub_1[[2]])
       ),
       radioButtons("unit_type",
-                   "Type of Unit",
-                   selected = "all",
-                   choiceValues = c("all"),
-                   choiceNames = c("All")
+                   "Building Unit Type",
+                   selected = "All",
+                   choices = append("All", cat_sub_2[[2]])
       ),
       
       h3("Choose Numeric Variables for Subset"),
       selectizeInput("num_var_1",
                      "Numeric Variable 1",
-                     choices = c("(none)", 
-                                 "INSP",
-                                 "VALP"),
+                     choices = append("(none)", num_vars[,2]),
                      selected = "(none)"
                      ),
       sliderInput("num_range_1",
@@ -52,9 +52,7 @@ ui <- fluidPage(
                   ),
       selectizeInput("num_var_2",
                      "Numeric Variable 2",
-                     choices = c("(none)",
-                                 "INSP",
-                                 "VALP"),
+                     choices = append("(none)", num_vars[,2]),
                      selected = "(none)"
                      ),
       sliderInput("num_range_2",
@@ -63,7 +61,7 @@ ui <- fluidPage(
                   max = 1000000,
                   value = c(0, 1000000)
                   ),
-      actionButton("subset_button", "Run Subset")
+      actionButton("run_subset", "Run Subset")
       
     ),
     mainPanel(
@@ -106,16 +104,24 @@ ui <- fluidPage(
                                           "Choose Numeric Variable",
                                           choices = c("INSP"))
                             )),
-                   fluidRow("Categorical Summary (One-Way Contingency Table)"
-                            
-                            ),
-                   fluidRow("Categorical Summary (Two-Way Contingency Table)"
-                            
-                            ),
-                   fluidRow("Numerical Summary"
-                            
+                   fluidRow(
+                     column(width = 10, offset = 2,
+                            "Categorical Summary (One-Way Contingency Table)",
+                            tableOutput("oneway_cont")
                             )
                    ),
+                   fluidRow(
+                     column(width = 10, offset = 2,
+                            "Categorical Summary (Two-Way Contingency Table)",
+                            tableOutput("twoway_cont")
+                            )
+                   ),
+                   fluidRow(
+                     column(width = 10, offset = 2,
+                            "Numerical Summary",
+                            tableOutput("summary")
+                            )
+                   )),
                  card(
                    card_header(h2("Plots")),
                    fluidRow(
@@ -134,16 +140,286 @@ ui <- fluidPage(
                                            "Fill color",
                                            choices = c())
                             )
-                     )
+                   ),
+                   fluidRow(
+                     # Plot: NC Map
+                     plotOutput("nc_map")
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: Bar with facet
+                     plotOutput("bar_plot")
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: scatter plot
+                     plotOutput("scatter_plot")
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: kernel density plot
+                     plotOutput("density_plot")
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: violin plot
+                     plotOutput("violin_plot")
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: heatmap
+                     plotOutput("heatmap_plot")
                    )
+                  )
                 )
         )
         )
       )      
     )
 
+
 server <- function(input, output, session) {
   
+  # update slider 1 values when num var 1 is changed
+  # observe({
+  #   input$num_var_1
+  #   updateSliderInput(session, "num_range_1", min = 10, max = 50)
+  # })
+  
+  # update slider 2 values when num var 2 is changed
+  
+  
+  # subset data when button is pressed - should this be reactive()?
+  observeEvent(input$run_subset, {
+    
+    # cat subset 1 (year_built)
+    
+    # cat subset 2 (unit_type)
+    
+    # num subset 1 (num_var_1, num_range_1)
+    
+    # num subset 2 (num_var_2, num_range_2)
+    
+    # subset census data, select only needed columns
+    
+  })
+  
+  #----- Summaries
+  output$oneway_cont <- renderTable({
+    
+    # one-way contingency table
+    census |>
+      group_by(HHLDRHISP) |>
+      filter(!is.na(HHLDRHISP)) |>
+      summarize(individuals = sum(PWGTP)) |>
+      arrange(desc(individuals))
+  })
+  
+  output$twoway_cont <- renderTable({
+    
+    # two-way contingency table
+    census |>
+      group_by(ACCESSINET, FS) |>
+      filter(!is.na(ACCESSINET) & !is.na(FS)) |>
+      summarize(individuals = sum(PWGTP)) |>
+      pivot_wider(names_from = FS, values_from = individuals)
+    
+    # FS = "Yearly food stamp/Supplemental Nutrition Assistance Program (SNAP) recipiency"
+    
+  })
+  
+  output$summary <- renderTable({
+    # INSP: Fire/hazard/flood insurance (yearly amount, use ADJHSG to adjust INSP to constant dollars)
+    
+    # main stats
+    summary_main <- census |>
+      group_by(YRBLT_Grp) |>
+      drop_na(YRBLT_Grp, INSP) |>
+      summarize(mean = census_mean(INSP, PWGTP),
+                median = census_median(INSP, PWGTP))
+    
+    # error summary
+    summary_error <- census |>
+      group_by(YRBLT_Grp) |>
+      drop_na(YRBLT_Grp, INSP) |>
+      do(census_error(., all_of("INSP")))
+    
+    # final summary - above two should end up with the same grouping variable values in the same order, but going to do a full join just in case
+    num_summary <- summary_main |>
+      full_join(summary_error)
+    
+    num_summary
+    
+  })
+  
+  #----- Plots
+  
+  output$nc_map <- renderPlot({
+    
+    # get geometric info for the PUMAs
+    pumas <- tigris::pumas(state = "NC", 
+                           year = "2023", 
+                           progress_bar = FALSE)
+    
+    # aggregate census data
+    census_aggregate <- census |>
+      group_by(PUMA) |>
+      summarize(median = census_median(INSP, PWGTP))
+    
+    # join to census data
+    census_map <- pumas |>
+      left_join(census_aggregate, join_by(PUMACE20 == PUMA))
+    
+    x_label <- data_dictionary_names |>
+      filter(variable_name == "INSP") |>
+      select(value)
+    
+    # plot data
+    ggplot(census_map) +
+      geom_sf(aes(fill = median)) +
+      ggtitle(paste0("Median value of ", x_label, "\n", " by PUMA")) +
+      theme(plot.title = element_text(hjust = 0.5)) 
+    
+  })
+  
+  output$bar_plot <- renderPlot({
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == "FS") |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == "ACCESSINET") |>
+      select(value)
+    
+    g <- ggplot(data = census |> drop_na(FS, ACCESSINET), 
+                aes(x = FS, weight = PWGTP, fill = ACCESSINET))
+    
+    # layers (remove the legend from the base layer, keep the legend for the fill)
+    g + geom_bar() +
+      ggtitle(paste0("Individuals with ", legend_label, "\n", " by ", x_label)) +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = x_label) +
+      scale_fill_discrete(legend_label) +
+      facet_wrap(vars(SEX))
+    
+  })
+  
+  output$scatter_plot <- renderPlot({
+    
+    # VEH: Vehicles available (capacity of 1 ton or less)
+    # VALP: Property Value
+    # AGEP: Age
+    
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == "INSP") |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == "YRBLT") |>
+      select(value)
+    
+    # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
+    ### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
+    sample_size <- sample(1:nrow(census), 
+                          size = 1000,
+                          replace = TRUE,
+                          prob = census$PWGTP/sum(census$PWGTP))
+    
+    # sample for plotting (##NOTE: pull from the census subset, not the full data)
+    census_sample <- census[sample_size, ]
+    
+    # base object with global assignments
+    g <- ggplot(data = census_sample |> drop_na(AGEP, VALP, VEH), 
+                aes(x = AGEP, y = VALP, color = VEH, weight = PWGTP))
+    
+    g + geom_point() 
+  })
+  
+  output$density_plot <- renderPlot({
+    
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == "INSP") |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == "YRBLT") |>
+      select(value)
+    
+    # base object with global assignments
+    g <- ggplot(data = census |> drop_na(INSP, YRBLT), aes(x = INSP, weight = PWGTP))
+    
+    # density plot
+    g + geom_density(aes(fill = YRBLT), kernel = "gaussian", alpha = 0.4) +
+      ggtitle("Test Title") +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = x_label, y = "Individuals") +
+      scale_fill_discrete(legend_label)
+    
+  })
+  
+  output$violin_plot <- renderPlot({
+    
+    census_data <- census |>
+      group_by(YRBLT) |>
+      drop_na(YRBLT, INSP) |>
+      summarize(individuals = sum(PWGTP),
+                total = sum(INSP))
+    
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == "INSP") |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == "YRBLT") |>
+      select(value)
+    
+    # base object with global assignments
+    g <- ggplot(data = census |> drop_na(INSP, YRBLT), aes(y = INSP, weight = PWGTP))
+    
+    g + geom_violin(aes(x = YRBLT, fill = YRBLT)) +
+      ggtitle("Test Title") +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = x_label, y = "Individuals") +
+      scale_fill_discrete(legend_label)
+    
+  })
+  
+  output$heatmap_plot <- renderPlot({
+    
+    # VEH: Vehicles available (capacity of 1 ton or less)
+    # VALP: Property Value
+    # AGEP: Age
+    
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == "") |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == "YRBLT") |>
+      select(value)
+    
+    # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
+    ### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
+    sample_size <- sample(1:nrow(census), 
+                          size = 1000,
+                          replace = TRUE,
+                          prob = census$PWGTP/sum(census$PWGTP))
+    
+    # sample for plotting (##NOTE: pull from the census subset, not the full data)
+    census_sample <- census[sample_size, ]
+    
+    # base object with global assignments
+    g <- ggplot(data = census_sample |> drop_na(AGEP_Grp, VALP, VEH), 
+                aes(x = AGEP_Grp, y = VEH, fill = VALP, weight = PWGTP))
+    
+    g + geom_tile()
+    
+  })
 }
 
 
