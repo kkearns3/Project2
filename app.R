@@ -15,7 +15,8 @@ source("helpers.R")
 data_dictionary_names <- readRDS("dd_names.rds")
 census <- readRDS("census.rds")
 
-# UI layout
+
+#-------- UI layout
 
 ui <- fluidPage(
   
@@ -70,7 +71,15 @@ ui <- fluidPage(
                  
         ),
         tabPanel("Data Download",
-                 card(h3("test"))
+                 card(
+                   card_header(h2("Download PUMS Data Subset")),
+                   fluidRow(
+                     downloadButton("download_table", "Download")
+                   ),
+                   fluidRow(
+                     DT::dataTableOutput("census_table")
+                   )
+                 )
                  
         ),
         
@@ -180,6 +189,8 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  # ------------- Data Exploration -------------
+  
   # update slider 1 values when num var 1 is changed
   # observe({
   #   input$num_var_1
@@ -187,10 +198,21 @@ server <- function(input, output, session) {
   # })
   
   # update slider 2 values when num var 2 is changed
+  # observeEvent(input$num_var_2, {
+  #   slider_range <- census_subset() |>
+  #     summarize(min_val = min(input$num_var_2),
+  #               max_val = max(input$num_var_2))
+  #   
+  #   updateSliderInput(session, "num_range_1", 
+  #                     min = slider_range[1], 
+  #                     max = slider_range[2])
+  # })
   
-  
-  # subset data when button is pressed - should this be reactive()?
-  observeEvent(input$run_subset, {
+  # subset data
+  census_subset <- reactive({
+    
+    census_subset <- census 
+      #filter() 
     
     # cat subset 1 (year_built)
     
@@ -420,6 +442,35 @@ server <- function(input, output, session) {
     g + geom_tile()
     
   })
+  
+  # -------- Data Exploration --------------
+  
+  output$census_table <- DT::renderDataTable({
+    
+    # keep only relevant columns in census data
+    keep_cols <- append(cat_vars$variable_name, num_vars$variable_name) |>
+      append(c("PWGTP", "YRBLT")) 
+    
+    # data table object for download tab
+    census_display <- census_subset() |>
+      select(any_of(keep_cols))
+    
+  })
+  
+  # new subset created specifically for the csv download (the table created by DT::renderDataTable seems to be creating the file as html)
+  census_download <- reactive({
+    census_subset() |>
+      select(any_of(keep_cols)) 
+  })
+  
+  # download table when button pressed
+  output$download_table <- downloadHandler(
+    filename = "PUMS_subset.csv",
+    content = function(file) {
+      write.csv(census_download(), file, row.names = FALSE)
+    },
+    contentType = "text/csv"
+  )
 }
 
 

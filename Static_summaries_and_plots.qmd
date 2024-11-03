@@ -7,6 +7,8 @@ toc: TRUE
 
 Libraries and dependencies
 ```{r}
+# "C:/Users/katni/Desktop/Katy Rose/Work & School/NCSU/ST 558 Data Science for Statisticians/Projects/Project2"
+
 library(tidyverse)
 library(readr)
 # library(tidycensus)
