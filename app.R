@@ -59,8 +59,8 @@ ui <- fluidPage(
       sliderInput("num_range_2",
                   "Numeric Variable 2 (Min and Max)",
                   min = 0,
-                  max = 1000000,
-                  value = c(0, 1000000)
+                  max = 100,
+                  value = c(0, 100)
                   ),
       actionButton("run_subset", "Run Subset")
       
@@ -260,29 +260,89 @@ server <- function(input, output, session) {
                       value = slider_range)
   })
   
-  # subset data
-  census_subset <- reactive({
-    
-    census_subset <- census 
-      #filter() 
+  # subset data when action button is pressed
+  census_subset <- eventReactive(input$run_subset, {
     
     # cat subset 1 (year_built)
-    
+    if(input$year_built == "All") {
+      YRBLT_vals <- cat_sub_1[[2]]
+    } else {
+      YRBLT_vals <- input$year_built
+    }
+
     # cat subset 2 (unit_type)
+    if(input$unit_type == "All") {
+      BLD_vals <- cat_sub_2[[2]]
+    } else {
+      BLD_vals <- input$unit_type
+    }
     
     # num subset 1 (num_var_1, num_range_1)
+    col_name_1 <- data_dictionary_names |>
+      filter(value == input$num_var_1) |>
+      select(variable_name) |>
+      as.character()
+    
+    # print(input$num_var_1)
+    # print(paste("col_name_1:", col_name_1))
+    # print(input$num_range_1[1])
+    # print(input$num_range_1[2])
+    # print(typeof(input$num_range_1[2]))
     
     # num subset 2 (num_var_2, num_range_2)
+    col_name_2 <- data_dictionary_names |>
+      filter(value == input$num_var_2) |>
+      select(variable_name) |>
+      as.character()
+    
+    print(col_name_2)
+    print(input$num_range_2)
     
     # subset census data, select only needed columns
+    census_subset <- census |>
+      filter(
+        YRBLT_Grp %in% YRBLT_vals,
+        BLD_Grp %in% BLD_vals
+      ) %>%
+      {if(col_name_1 == "INSP") filter(., INSP >= input$num_range_1[1] & 
+                                          INSP <= input$num_range_1[2]) else .} %>%
+      {if(col_name_1 == "AGEP") filter(., AGEP >= input$num_range_1[1] & 
+                                          AGEP <= input$num_range_1[2]) else .} %>%
+      {if(col_name_1 == "MRGP") filter(., MRGP >= input$num_range_1[1] & 
+                                          MRGP <= input$num_range_1[2]) else .} %>%
+      {if(col_name_1 == "VALP") filter(., VALP >= input$num_range_1[1] & 
+                                          VALP <= input$num_range_1[2]) else .} %>%
+      {if(col_name_1 == "HINCP") filter(., HINCP >= input$num_range_1[1] & 
+                                           HINCP <= input$num_range_1[2]) else .} %>%
+      {if(col_name_1 == "OCPIP") filter(., OCPIP >= input$num_range_1[1] & 
+                                           OCPIP <= input$num_range_1[2]) else .} %>%
+      {if(col_name_1 == "PINCP") filter(., PINCP >= input$num_range_1[1] & 
+                                           PINCP <= input$num_range_1[2]) else .} %>%
+      {if(col_name_2 == "INSP") filter(., INSP >= input$num_range_2[1] & 
+                                         INSP <= input$num_range_2[2]) else .} %>%
+      {if(col_name_2 == "AGEP") filter(., AGEP >= input$num_range_2[1] & 
+                                         AGEP <= input$num_range_2[2]) else .} %>%
+      {if(col_name_2 == "MRGP") filter(., MRGP >= input$num_range_2[1] & 
+                                         MRGP <= input$num_range_2[2]) else .} %>%
+      {if(col_name_2 == "VALP") filter(., VALP >= input$num_range_2[1] & 
+                                         VALP <= input$num_range_2[2]) else .} %>%
+      {if(col_name_2 == "HINCP") filter(., HINCP >= input$num_range_2[1] & 
+                                          HINCP <= input$num_range_2[2]) else .} %>%
+      {if(col_name_2 == "OCPIP") filter(., OCPIP >= input$num_range_2[1] & 
+                                          OCPIP <= input$num_range_2[2]) else .} %>%
+      {if(col_name_2 == "PINCP") filter(., PINCP >= input$num_range_2[1] & 
+                                          PINCP <= input$num_range_2[2]) else .}
     
-  })
+    #"INSP", "AGEP", "MRGP", "VALP", "HINCP", "OCPIP", "PINCP"
+  },
+  ignoreNULL = FALSE)
   
   #----- Summaries
   output$oneway_cont <- renderTable({
     
+    print("summary running")
     # one-way contingency table
-    census |>
+    census_subset() |>
       group_by(HHLDRHISP) |>
       filter(!is.na(HHLDRHISP)) |>
       summarize(individuals = sum(PWGTP)) |>
@@ -306,14 +366,14 @@ server <- function(input, output, session) {
     # INSP: Fire/hazard/flood insurance (yearly amount, use ADJHSG to adjust INSP to constant dollars)
     
     # main stats
-    summary_main <- census |>
+    summary_main <- census_subset() |>
       group_by(YRBLT_Grp) |>
       drop_na(YRBLT_Grp, INSP) |>
       summarize(mean = census_mean(INSP, PWGTP),
                 median = census_median(INSP, PWGTP))
     
     # error summary
-    summary_error <- census |>
+    summary_error <- census_subset() |>
       group_by(YRBLT_Grp) |>
       drop_na(YRBLT_Grp, INSP) |>
       do(census_error(., all_of("INSP")))
