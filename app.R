@@ -87,50 +87,62 @@ ui <- fluidPage(
                  card(
                    card_header(h2("Summaries")),
                    fluidRow(
-                     column(width = 4, 
-                            
+                     column(width = 3,
                             # choose which summaries to display
-                            radioButtons("summ_types",
-                                         "Display Summaries",
-                                         choices = c("Categorical",
-                                                     "Numerical",
-                                                     "Both",
-                                                     "None"),
-                                         selected = "Both")
+                            checkboxGroupInput("summ_types",
+                                               "Display Summaries",
+                                               choices = c("Categorical",
+                                                           "Numeric"),
+                                               selected = c("Categorical",
+                                                            "Numeric"))
                             ),
-                     column(width = 4,
+                     column(width = 3,
                             
                             # choose categorical variable to summarize by
-                            selectizeInput("summ_cat",
-                                           "Choose Categorical Variable",
-                                           choices = c("SEX",
-                                                       "YRBLT"))
+                            selectizeInput("summ_cat_1",
+                                           "Choose Categorical Variable 1",
+                                           choices = cat_vars[[1]],
+                                           selected = "MV")
                             ),
-                     column(width = 4,
+                     column(width = 3,
+                            
+                            # choose categorical variable to summarize by
+                            selectizeInput("summ_cat_2",
+                                           "Choose Categorical Variable 2",
+                                           choices = cat_vars[[1]],
+                                           selected = "SEX")
+                     ),
+                     column(width = 3,
                           
                             # choose numeric variable to summarize by
                             selectizeInput("summ_num",
                                           "Choose Numeric Variable",
-                                          choices = c("INSP"))
+                                          choices = num_vars[[1]],
+                                          selected = "INSP")
                             )),
-                   fluidRow(
-                     column(width = 10, offset = 2,
-                            "Categorical Summary (One-Way Contingency Table)",
-                            tableOutput("oneway_cont")
-                            )
+                   conditionalPanel("input.summ_types.includes('Categorical')",
+                     fluidRow(
+                       column(width = 10, offset = 2,
+                              "Categorical Summary (One-Way Contingency Table)",
+                              tableOutput("oneway_cont")
+                              )
+                     ),
+                     fluidRow(
+                       column(width = 10, offset = 2,
+                              "Categorical Summary (Two-Way Contingency Table)",
+                              tableOutput("twoway_cont")
+                              )
+                     )
                    ),
-                   fluidRow(
-                     column(width = 10, offset = 2,
-                            "Categorical Summary (Two-Way Contingency Table)",
-                            tableOutput("twoway_cont")
-                            )
-                   ),
-                   fluidRow(
-                     column(width = 10, offset = 2,
-                            "Numerical Summary",
-                            tableOutput("summary")
-                            )
-                   )),
+                   conditionalPanel("input.summ_types.includes('Numeric')",
+                     fluidRow(
+                       column(width = 10, offset = 2,
+                              "Numerical Summary",
+                              tableOutput("summary")
+                              )
+                     )
+                   )
+                 ),
                  card(
                    card_header(h2("Plots")),
                    fluidRow(
@@ -283,22 +295,14 @@ server <- function(input, output, session) {
       select(variable_name) |>
       as.character()
     
-    # print(input$num_var_1)
-    # print(paste("col_name_1:", col_name_1))
-    # print(input$num_range_1[1])
-    # print(input$num_range_1[2])
-    # print(typeof(input$num_range_1[2]))
-    
     # num subset 2 (num_var_2, num_range_2)
     col_name_2 <- data_dictionary_names |>
       filter(value == input$num_var_2) |>
       select(variable_name) |>
       as.character()
     
-    print(col_name_2)
-    print(input$num_range_2)
-    
     # subset census data, select only needed columns
+    #   Note: referenced Dr. P's HW7 file for the numeric range filtering
     census_subset <- census |>
       filter(
         YRBLT_Grp %in% YRBLT_vals,
@@ -343,20 +347,20 @@ server <- function(input, output, session) {
     print("summary running")
     # one-way contingency table
     census_subset() |>
-      group_by(HHLDRHISP) |>
-      filter(!is.na(HHLDRHISP)) |>
-      summarize(individuals = sum(PWGTP)) |>
-      arrange(desc(individuals))
+      group_by(.data[[input$summ_cat_1]]) |>
+      filter(!is.na(.data[[input$summ_cat_1]])) |>
+      summarize(individuals = sum(PWGTP)) #|>
+      #arrange(desc(individuals))
   })
   
   output$twoway_cont <- renderTable({
     
     # two-way contingency table
     census |>
-      group_by(ACCESSINET, FS) |>
-      filter(!is.na(ACCESSINET) & !is.na(FS)) |>
+      group_by(.data[[input$summ_cat_1]], .data[[input$summ_cat_2]]) |>
+      filter(!is.na(.data[[input$summ_cat_1]]) & !is.na(.data[[input$summ_cat_2]])) |>
       summarize(individuals = sum(PWGTP)) |>
-      pivot_wider(names_from = FS, values_from = individuals)
+      pivot_wider(names_from = .data[[input$summ_cat_2]], values_from = individuals)
     
     # FS = "Yearly food stamp/Supplemental Nutrition Assistance Program (SNAP) recipiency"
     
@@ -367,16 +371,16 @@ server <- function(input, output, session) {
     
     # main stats
     summary_main <- census_subset() |>
-      group_by(YRBLT_Grp) |>
-      drop_na(YRBLT_Grp, INSP) |>
-      summarize(mean = census_mean(INSP, PWGTP),
-                median = census_median(INSP, PWGTP))
+      group_by(.data[[input$summ_cat_1]]) |>
+      drop_na(.data[[input$summ_cat_1]], .data[[input$summ_num]]) |>
+      summarize(mean = census_mean(.data[[input$summ_num]], PWGTP),
+                median = census_median(.data[[input$summ_num]], PWGTP))
     
     # error summary
     summary_error <- census_subset() |>
-      group_by(YRBLT_Grp) |>
-      drop_na(YRBLT_Grp, INSP) |>
-      do(census_error(., all_of("INSP")))
+      group_by(.data[[input$summ_cat_1]]) |>
+      drop_na(.data[[input$summ_cat_1]], .data[[input$summ_num]]) |>
+      do(census_error(., all_of(input$summ_num)))
     
     # final summary - above two should end up with the same grouping variable values in the same order, but going to do a full join just in case
     num_summary <- summary_main |>
@@ -583,6 +587,10 @@ server <- function(input, output, session) {
     },
     contentType = "text/csv"
   )
+  
+  observe({
+    print(input$summ_types)
+  })
 }
 
 
