@@ -192,21 +192,73 @@ server <- function(input, output, session) {
   # ------------- Data Exploration -------------
   
   # update slider 1 values when num var 1 is changed
-  # observe({
-  #   input$num_var_1
-  #   updateSliderInput(session, "num_range_1", min = 10, max = 50)
-  # })
+  observeEvent(input$num_var_1, {
+    
+    # get data column name from the descriptive input
+    num_label <- input$num_var_1
+    
+    # if selected value is (none), set initial values
+    if (num_label == "(none)") {
+      slider_range <- tibble(min_val = 0, max_val = 100)
+    } else {
+      col_name <- data_dictionary_names |>
+        filter(value == num_label) |>
+        select(variable_name) |>
+        as.character()
+      
+      slider_range <- census_subset() |>
+        select(any_of(col_name)) |>
+        drop_na(any_of(col_name)) |>
+        summarize(across(everything(), 
+                         list(min_val = min, max_val = max),
+                         .names = "{.fn}")) 
+    }
+    
+    # print(slider_range)
+    # print(input$num_var_2)
+    # print(col_name)
+    # print(test)
+    
+    updateSliderInput(session, "num_range_1",
+                      min = slider_range$min_val,
+                      max = slider_range$max_val,
+                      value = slider_range)
+  })
+  
   
   # update slider 2 values when num var 2 is changed
-  # observeEvent(input$num_var_2, {
-  #   slider_range <- census_subset() |>
-  #     summarize(min_val = min(input$num_var_2),
-  #               max_val = max(input$num_var_2))
-  #   
-  #   updateSliderInput(session, "num_range_1", 
-  #                     min = slider_range[1], 
-  #                     max = slider_range[2])
-  # })
+  observeEvent(input$num_var_2, {
+    
+    # get data column name from the descriptive input
+    num_label <- input$num_var_2
+    
+    # if selected value is (none), set initial values
+    if (num_label == "(none)") {
+      slider_range <- tibble(min_val = 0, max_val = 100)
+    } else {
+      col_name <- data_dictionary_names |>
+        filter(value == num_label) |>
+        select(variable_name) |>
+        as.character()
+      
+      slider_range <- census_subset() |>
+        select(any_of(col_name)) |>
+        drop_na(any_of(col_name)) |>
+        summarize(across(everything(), 
+                         list(min_val = min, max_val = max),
+                         .names = "{.fn}")) 
+    }
+
+    # print(slider_range)
+    # print(input$num_var_2)
+    # print(col_name)
+    # print(test)
+
+    updateSliderInput(session, "num_range_2",
+                      min = slider_range$min_val,
+                      max = slider_range$max_val,
+                      value = slider_range)
+  })
   
   # subset data
   census_subset <- reactive({
