@@ -261,6 +261,12 @@ ui <- fluidPage(
                      withSpinner(
                        plotOutput("bar_plot"))
                    ),
+                   fluidRow(
+                     column(
+                       width = 10, offset = 2,
+                       uiOutput("facet_info")
+                     )
+                   ),
                    br(),
                    fluidRow(
                      # Plot: violin plot
@@ -631,21 +637,6 @@ server <- function(input, output, session) {
   
   output$bar_plot <- renderPlot({
     
-    # check how many facets would be created
-    facets <- census_subset() |>
-      group_by(.data[[input$plot2_facet]]) |>
-      drop_na(.data[[input$plot2_facet]]) |>
-      summarize(count = sum(PWGTP)) |>
-      arrange(desc(count))
-    
-    # if more than 6, isolate subsets to the 6 most common levels
-    if (length(facets[[1]]) > 6) {
-      census_facets <- census_subset() |>
-        filter(.data[[input$plot2_facet]] %in% facets[[1]][1:6])
-    } else {
-      census_facets <- census_subset()
-    }
-    
     # values for labels
     x_label <- data_dictionary_names |>
       filter(variable_name == input$plot2_x) |>
@@ -659,14 +650,14 @@ server <- function(input, output, session) {
       filter(variable_name == input$plot2_facet) |>
       select(value)
     
-    g <- ggplot(data = census_facets |> drop_na(.data[[input$plot2_x]], 
+    g <- ggplot(data = census_facets() |> drop_na(.data[[input$plot2_x]], 
                                                 .data[[input$plot2_fill]], 
                                                 .data[[input$plot2_facet]]), 
                 aes(x = .data[[input$plot2_x]], weight = PWGTP, fill = .data[[input$plot2_fill]]))
     
     # layers (remove the legend from the base layer, keep the legend for the fill)
     g + geom_bar() +
-      ggtitle(paste0("Individuals with ", legend_label, "\n", " filled by ", x_label, "\n",
+      ggtitle(paste0(x_label, "\n", " filled by ", legend_label, "\n",
                      "Faceted by ", facet_label)) +
       theme(plot.title = element_text(hjust = 0.5)) +
       labs(x = x_label) +
@@ -710,6 +701,53 @@ server <- function(input, output, session) {
     
   })
   
+  # create a reactive Values object for holding counts of facets in the original subset, and in the faceted subset. To be passed to the conditional message informing user about which facets are displayed
+  facet_counts <- reactiveValues(original = 0, displayed = 0)
+  
+  # limit number of facets - generate data set with 6 or fewer levels
+  # (currently for "bar_plot")
+  census_facets <- reactive({
+    
+    # check how many facets would be created
+    facets <- census_subset() |>
+      group_by(.data[[input$plot2_facet]]) |>
+      drop_na(.data[[input$plot2_facet]]) |>
+      summarize(count = sum(PWGTP)) |>
+      arrange(desc(count))
+    
+    # assign original subset to reactive Values object
+    facet_counts$original <- length(facets[[1]])
+    
+    # if more than 6, isolate subsets to the 6 most common levels
+    if (facet_counts$original > 6) {
+      census_facets <- census_subset() |>
+        filter(.data[[input$plot2_facet]] %in% facets[[1]][1:6])
+    } else {
+      census_facets <- census_subset()
+    }
+    
+    # set how many facets will be displayed
+    facet_counts$displayed <- census_facets |>
+      distinct(get(input$plot2_facet)) |>
+      summarize(count = n())
+    
+    census_facets
+    
+  })
+  
+  output$facet_info <- renderUI({
+         
+    em(HTML(paste0("Note: Plots are limited to a maximum of 6 facets.<br>",
+                   "Your selection has omitted ", 
+                   facet_counts$original - facet_counts$displayed, 
+                   " facets.")))
+    
+  })
+  
+  # observe({
+  #   print(paste0("facet_counts$original: ", facet_counts$original))
+  #   print(paste0("facet_counts$displayed: ", facet_counts$displayed))
+  # })
   
   # -------- Data Exploration --------------
   
@@ -740,9 +778,6 @@ server <- function(input, output, session) {
     contentType = "text/csv"
   )
   
-  # observe({
-  #   print(input$summ_types)
-  # })
 }
 
 
