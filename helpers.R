@@ -3,6 +3,7 @@
 # dependent data sets 
 data_dictionary_names <- readRDS("dd_names.rds")
 data_dictionary_values <- readRDS("dd_values.rds")
+census <- readRDS("census.rds")
 
 #### Variable lists for widgets
 

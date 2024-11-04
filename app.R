@@ -11,13 +11,16 @@ library(tidyverse)
 library(readr)
 library(markdown)
 library(shinycssloaders)
-source("helpers.R")
+
+# global options
 options(spinner.type = 8)
 
 # Read required files
 data_dictionary_names <- readRDS("dd_names.rds")
 census <- readRDS("census.rds")
 
+# source helpers script
+source("helpers.R")
 
 #-------- UI layout
 
@@ -179,16 +182,18 @@ ui <- fluidPage(
                    ),
                    fluidRow(
                      # Plot: NC Map
-                     withSpinner(plotOutput("nc_map"))
+                     withSpinner(
+                       plotOutput("nc_map"))
                    ),
                    br(),
                    fluidRow(
                      # Plot: heatmap
-                     withSpinner(plotOutput("heatmap_plot"))
+                     withSpinner(
+                       plotOutput("heatmap_plot"))
                    )
                    ),
                  card(
-                   card_header(h3("Numeric vs Numeric Plots")),
+                   card_header(h3("Numeric Plots")),
                    fluidRow(
                      column(width = 4,
                             selectizeInput("plot1_x",
@@ -223,33 +228,44 @@ ui <- fluidPage(
                    )
                  ),
                  card(
-                   card_header(h3("Categorical vs Numeric Plots")),
+                   card_header(h3("Categorical Plots")),
                    fluidRow(
-                     column(width = 4,
+                     column(width = 3,
                             selectizeInput("plot2_x",
                                            "X variable",
-                                           choices = c())
+                                           choices = cat_vars[1],
+                                           selected = "FS")
                      ),
-                     column(width = 4,
+                     column(width = 3,
                             selectizeInput("plot2_y",
                                            "Y variable",
-                                           choices = c())
+                                           choices = num_vars[1],
+                                           selected = "INSP")
                      ),
-                     column(width = 4,
+                     column(width = 3,
                             selectizeInput("plot2_fill",
                                            "Fill color",
-                                           choices = c())
+                                           choices = cat_vars[1],
+                                           selected = "ACCESSINET")
+                     ),
+                     column(width = 3,
+                            selectizeInput("plot2_facet",
+                                           "Facet by",
+                                           choices = cat_vars[1],
+                                           selected = "AGEP_Grp")
                      )
                    ),
                    br(),
                    fluidRow(
                      # Plot: Bar with facet
-                     plotOutput("bar_plot")
+                     withSpinner(
+                       plotOutput("bar_plot"))
                    ),
                    br(),
                    fluidRow(
                      # Plot: violin plot
-                     plotOutput("violin_plot")
+                     withSpinner(
+                       plotOutput("violin_plot"))
                    )
                   )
                 )
@@ -408,23 +424,38 @@ server <- function(input, output, session) {
   output$oneway_cont <- renderTable({
     
     # one-way contingency table
-    census_subset() |>
-      group_by(.data[[input$summ_cat_1]]) |>
-      filter(!is.na(.data[[input$summ_cat_1]])) |>
-      summarize(individuals = sum(PWGTP)) #|>
-      #arrange(desc(individuals))
+    cont_table <- census_subset() |>
+      group_by(get(input$summ_cat_1)) |>
+      filter(!is.na(get(input$summ_cat_1))) |>
+      summarize(individuals = sum(PWGTP)) 
+    
+    # rename column so it provides the variable name
+    names(cont_table)[1] <- input$summ_cat_1 
+    
+    cont_table
   })
   
   output$twoway_cont <- renderTable({
     
+    # # two-way contingency table
+    # census_subset() |>
+    #   group_by(.data[[input$summ_cat_1]], .data[[input$summ_cat_2]]) |>
+    #   filter(!is.na(.data[[input$summ_cat_1]]) & !is.na(.data[[input$summ_cat_2]])) |>
+    #   summarize(individuals = sum(PWGTP)) |>
+    #   pivot_wider(names_from = .data[[input$summ_cat_2]], values_from = individuals)
+    # 
+   
     # two-way contingency table
-    census_subset() |>
-      group_by(.data[[input$summ_cat_1]], .data[[input$summ_cat_2]]) |>
-      filter(!is.na(.data[[input$summ_cat_1]]) & !is.na(.data[[input$summ_cat_2]])) |>
+    cont_table <- census_subset() |>
+      group_by(get(input$summ_cat_1), get(input$summ_cat_2)) |>
+      filter(!is.na(get(input$summ_cat_1)) & !is.na(get(input$summ_cat_2))) |>
       summarize(individuals = sum(PWGTP)) |>
-      pivot_wider(names_from = .data[[input$summ_cat_2]], values_from = individuals)
+      pivot_wider(names_from = `get(input$summ_cat_2)`, values_from = individuals)
     
-    # FS = "Yearly food stamp/Supplemental Nutrition Assistance Program (SNAP) recipiency"
+    # rename column so it provides the variable name
+    names(cont_table)[1] <- input$summ_cat_1 
+    
+    cont_table
     
   })
   
@@ -599,25 +630,48 @@ server <- function(input, output, session) {
   # ------- Plot Group 2 (Cat vs Num) 
   
   output$bar_plot <- renderPlot({
+    
+    # check how many facets would be created
+    facets <- census_subset() |>
+      group_by(.data[[input$plot2_facet]]) |>
+      drop_na(.data[[input$plot2_facet]]) |>
+      summarize(count = sum(PWGTP)) |>
+      arrange(desc(count))
+    
+    # if more than 6, isolate subsets to the 6 most common levels
+    if (length(facets[[1]]) > 6) {
+      census_facets <- census_subset() |>
+        filter(.data[[input$plot2_facet]] %in% facets[[1]][1:6])
+    } else {
+      census_facets <- census_subset()
+    }
+    
     # values for labels
     x_label <- data_dictionary_names |>
-      filter(variable_name == "FS") |>
+      filter(variable_name == input$plot2_x) |>
       select(value)
     
     legend_label <- data_dictionary_names |>
-      filter(variable_name == "ACCESSINET") |>
+      filter(variable_name == input$plot2_fill) |>
       select(value)
     
-    g <- ggplot(data = census_subset() |> drop_na(FS, ACCESSINET), 
-                aes(x = FS, weight = PWGTP, fill = ACCESSINET))
+    facet_label <- data_dictionary_names |>
+      filter(variable_name == input$plot2_facet) |>
+      select(value)
+    
+    g <- ggplot(data = census_facets |> drop_na(.data[[input$plot2_x]], 
+                                                .data[[input$plot2_fill]], 
+                                                .data[[input$plot2_facet]]), 
+                aes(x = .data[[input$plot2_x]], weight = PWGTP, fill = .data[[input$plot2_fill]]))
     
     # layers (remove the legend from the base layer, keep the legend for the fill)
     g + geom_bar() +
-      ggtitle(paste0("Individuals with ", legend_label, "\n", " by ", x_label)) +
+      ggtitle(paste0("Individuals with ", legend_label, "\n", " filled by ", x_label, "\n",
+                     "Faceted by ", facet_label)) +
       theme(plot.title = element_text(hjust = 0.5)) +
       labs(x = x_label) +
       scale_fill_discrete(legend_label) +
-      facet_wrap(vars(SEX))
+      facet_wrap(vars(.data[[input$plot2_facet]]))
     
   })
   
@@ -631,20 +685,27 @@ server <- function(input, output, session) {
     
     # values for labels
     x_label <- data_dictionary_names |>
-      filter(variable_name == "INSP") |>
+      filter(variable_name == input$plot2_x) |>
+      select(value)
+    
+    y_label <- data_dictionary_names |>
+      filter(variable_name == input$plot2_y) |>
       select(value)
     
     legend_label <- data_dictionary_names |>
-      filter(variable_name == "YRBLT") |>
+      filter(variable_name == input$plot2_fill) |>
       select(value)
     
     # base object with global assignments
-    g <- ggplot(data = census_subset() |> drop_na(INSP, YRBLT), aes(y = INSP, weight = PWGTP))
+    g <- ggplot(data = census_subset() |> drop_na(.data[[input$plot2_x]], 
+                                                  .data[[input$plot2_y]],
+                                                  .data[[input$plot2_fill]]), 
+                aes(y = .data[[input$plot2_y]], weight = PWGTP))
     
-    g + geom_violin(aes(x = YRBLT, fill = YRBLT)) +
-      ggtitle("Test Title") +
+    g + geom_violin(aes(x = .data[[input$plot2_x]], fill = .data[[input$plot2_fill]])) +
+      ggtitle(paste0("Violin plot of ", x_label, "\n", " by ", y_label)) +
       theme(plot.title = element_text(hjust = 0.5)) +
-      labs(x = x_label, y = "Individuals") +
+      labs(x = x_label, y = y_label) +
       scale_fill_discrete(legend_label)
     
   })
