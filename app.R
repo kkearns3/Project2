@@ -9,7 +9,10 @@ library(shinyalert)
 library(bslib)
 library(tidyverse)
 library(readr)
+library(markdown)
+library(shinycssloaders)
 source("helpers.R")
+options(spinner.type = 8)
 
 # Read required files
 data_dictionary_names <- readRDS("dd_names.rds")
@@ -62,12 +65,18 @@ ui <- fluidPage(
                   max = 100,
                   value = c(0, 100)
                   ),
-      actionButton("run_subset", "Run Subset")
+      actionButton("run_subset", "Run Subset",
+                   style = "color: white; background-color: SteelBlue;")
       
     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("About"
+        tabPanel("About",
+                 fluidRow(
+                   includeMarkdown("include.md")
+                 ),
+                 br(),
+                 fluidRow("More text?")
                  
         ),
         tabPanel("Data Download",
@@ -124,13 +133,13 @@ ui <- fluidPage(
                      fluidRow(
                        column(width = 10, offset = 2,
                               "Categorical Summary (One-Way Contingency Table)",
-                              tableOutput("oneway_cont")
+                              withSpinner(tableOutput("oneway_cont"))
                               )
                      ),
                      fluidRow(
                        column(width = 10, offset = 2,
                               "Categorical Summary (Two-Way Contingency Table)",
-                              tableOutput("twoway_cont")
+                              withSpinner(tableOutput("twoway_cont"))
                               )
                      )
                    ),
@@ -138,33 +147,99 @@ ui <- fluidPage(
                      fluidRow(
                        column(width = 10, offset = 2,
                               "Numerical Summary",
-                              tableOutput("summary")
+                              withSpinner(tableOutput("summary"))
                               )
                      )
                    )
                  ),
+                 h2("Plots"),
+                 
+                 # Map plots, with controls
                  card(
-                   card_header(h2("Plots")),
+                   card_header(h3("Map Plots")),
                    fluidRow(
                      column(width = 4,
-                            selectizeInput("plot_x",
+                            selectizeInput("map_x",
                                            "X variable",
-                                           choices = c())
+                                           choices = cat_vars[1],
+                                           selected = "AGEP_Grp")
                             ),
                      column(width = 4,
-                            selectizeInput("plot_y",
+                            selectizeInput("map_y",
                                            "Y variable",
-                                           choices = c())
+                                           choices = cat_vars[1],
+                                           selected = "VEH")
                             ),
                      column(width = 4,
-                            selectizeInput("plot_fill",
-                                           "Fill color",
-                                           choices = c())
+                            selectizeInput("map_fill",
+                                           "Color by",
+                                           choices = num_vars[1],
+                                           selected = "VALP")
                             )
                    ),
                    fluidRow(
                      # Plot: NC Map
-                     plotOutput("nc_map")
+                     withSpinner(plotOutput("nc_map"))
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: heatmap
+                     withSpinner(plotOutput("heatmap_plot"))
+                   )
+                   ),
+                 card(
+                   card_header(h3("Numeric vs Numeric Plots")),
+                   fluidRow(
+                     column(width = 4,
+                            selectizeInput("plot1_x",
+                                           "X variable",
+                                           choices = num_vars[1],
+                                           selected = "INSP")
+                     ),
+                     column(width = 4,
+                            selectizeInput("plot1_y",
+                                           "Y variable",
+                                           choices = num_vars[1],
+                                           selected = "AGEP")
+                     ),
+                     column(width = 4,
+                            selectizeInput("plot1_fill",
+                                           "Color by",
+                                           choices = cat_vars[1],
+                                           selected = "VEH")
+                     )
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: kernel density plot
+                     withSpinner(
+                       plotOutput("density_plot"))
+                   ),
+                   br(),
+                   fluidRow(
+                     # Plot: scatter plot
+                     withSpinner(
+                       plotOutput("scatter_plot"))
+                   )
+                 ),
+                 card(
+                   card_header(h3("Categorical vs Numeric Plots")),
+                   fluidRow(
+                     column(width = 4,
+                            selectizeInput("plot2_x",
+                                           "X variable",
+                                           choices = c())
+                     ),
+                     column(width = 4,
+                            selectizeInput("plot2_y",
+                                           "Y variable",
+                                           choices = c())
+                     ),
+                     column(width = 4,
+                            selectizeInput("plot2_fill",
+                                           "Fill color",
+                                           choices = c())
+                     )
                    ),
                    br(),
                    fluidRow(
@@ -173,23 +248,8 @@ ui <- fluidPage(
                    ),
                    br(),
                    fluidRow(
-                     # Plot: scatter plot
-                     plotOutput("scatter_plot")
-                   ),
-                   br(),
-                   fluidRow(
-                     # Plot: kernel density plot
-                     plotOutput("density_plot")
-                   ),
-                   br(),
-                   fluidRow(
                      # Plot: violin plot
                      plotOutput("violin_plot")
-                   ),
-                   br(),
-                   fluidRow(
-                     # Plot: heatmap
-                     plotOutput("heatmap_plot")
                    )
                   )
                 )
@@ -275,6 +335,9 @@ server <- function(input, output, session) {
   # subset data when action button is pressed
   census_subset <- eventReactive(input$run_subset, {
     
+    observe({
+      print(input$map_x)
+    })
     # cat subset 1 (year_built)
     if(input$year_built == "All") {
       YRBLT_vals <- cat_sub_1[[2]]
@@ -344,7 +407,6 @@ server <- function(input, output, session) {
   #----- Summaries
   output$oneway_cont <- renderTable({
     
-    print("summary running")
     # one-way contingency table
     census_subset() |>
       group_by(.data[[input$summ_cat_1]]) |>
@@ -356,7 +418,7 @@ server <- function(input, output, session) {
   output$twoway_cont <- renderTable({
     
     # two-way contingency table
-    census |>
+    census_subset() |>
       group_by(.data[[input$summ_cat_1]], .data[[input$summ_cat_2]]) |>
       filter(!is.na(.data[[input$summ_cat_1]]) & !is.na(.data[[input$summ_cat_2]])) |>
       summarize(individuals = sum(PWGTP)) |>
@@ -393,6 +455,8 @@ server <- function(input, output, session) {
   #----- Plots
   
   output$nc_map <- renderPlot({
+  
+    # ------- Plot Group 0 (Maps) 
     
     # get geometric info for the PUMAs
     pumas <- tigris::pumas(state = "NC", 
@@ -400,25 +464,139 @@ server <- function(input, output, session) {
                            progress_bar = FALSE)
     
     # aggregate census data
-    census_aggregate <- census |>
+    census_aggregate <- census_subset() |>
       group_by(PUMA) |>
-      summarize(median = census_median(INSP, PWGTP))
+      drop_na(.data[[input$map_fill]]) |>
+      summarize(median = census_median(.data[[input$map_fill]], PWGTP))
     
     # join to census data
     census_map <- pumas |>
       left_join(census_aggregate, join_by(PUMACE20 == PUMA))
     
     x_label <- data_dictionary_names |>
-      filter(variable_name == "INSP") |>
+      filter(variable_name == input$map_fill) |>
       select(value)
     
     # plot data
     ggplot(census_map) +
       geom_sf(aes(fill = median)) +
-      ggtitle(paste0("Median value of ", x_label, "\n", " by PUMA")) +
+      ggtitle(paste0("Median of ", x_label, "\n", " by PUMA")) +
       theme(plot.title = element_text(hjust = 0.5)) 
     
   })
+
+  output$heatmap_plot <- renderPlot({
+    
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == input$map_x) |>
+      select(value)
+    
+    y_label <- data_dictionary_names |>
+      filter(variable_name == input$map_y) |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == input$map_fill) |>
+      select(value)
+    
+    # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
+    ### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
+    # sample_size <- sample(1:nrow(census_subset()), 
+    #                       size = 1000,
+    #                       replace = TRUE,
+    #                       prob = census_subset()$PWGTP/sum(census_subset()$PWGTP))
+    # 
+    # # sample for plotting (##NOTE: pull from the census subset, not the full data)
+    # census_sample <- census_subset()[sample_size, ]
+    
+    # base object with global assignments
+    g <- ggplot(data = census_subset() |> drop_na(.data[[input$map_x]], 
+                                                  .data[[input$map_y]], 
+                                                  .data[[input$map_fill]]), 
+                aes(x = .data[[input$map_x]], y = .data[[input$map_y]], 
+                    fill = .data[[input$map_fill]], weight = PWGTP))
+    
+    g + geom_tile() +
+      ggtitle(paste0("Heatmap of ", x_label, "\n", " by ", y_label)) +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = x_label, y = y_label) +
+      guides(fill = guide_colorbar(title = legend_label))
+    
+  })
+  
+  # ------- Plot Group 1 (Num vs Num) 
+
+  output$scatter_plot <- renderPlot({
+    
+    # VEH: Vehicles available (capacity of 1 ton or less)
+    # VALP: Property Value
+    # AGEP: Age
+    
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == input$plot1_x) |>
+      select(value)
+    
+    y_label <- data_dictionary_names |>
+      filter(variable_name == input$plot1_y) |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == input$plot1_fill) |>
+      select(value)
+    
+    # take sample of the data (500 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
+    sample_size <- sample(1:nrow(census_subset()), 
+                          size = 500,
+                          replace = TRUE,
+                          prob = census_subset()$PWGTP/sum(census_subset()$PWGTP))
+    
+    # sample for plotting (##NOTE: pull from the census subset, not the full data)
+    census_sample <- census_subset()[sample_size, ]
+    
+    # base object with global assignments
+    g <- ggplot(data = census_sample |> drop_na(.data[[input$plot1_x]], 
+                                                .data[[input$plot1_y]],
+                                                .data[[input$plot1_fill]]), 
+                aes(x = .data[[input$plot1_x]], y = .data[[input$plot1_y]], 
+                    color = .data[[input$plot1_fill]], weight = PWGTP))
+    
+    g + geom_point() +
+      ggtitle(paste0("Scatter plot of ", x_label, "\n", " by ", y_label)) + 
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = x_label, y = y_label) +
+      guides(fill = guide_colorbar(title = legend_label))
+      # scale_fill_discrete(legend_label) # does legend need this?
+  })
+  
+  output$density_plot <- renderPlot({
+    
+    # values for labels
+    x_label <- data_dictionary_names |>
+      filter(variable_name == input$plot1_x) |>
+      select(value)
+    
+    legend_label <- data_dictionary_names |>
+      filter(variable_name == input$plot1_fill) |>
+      select(value)
+    
+    # base object with global assignments
+    g <- ggplot(data = census_subset() |> drop_na(.data[[input$plot1_x]], 
+                                                  .data[[input$plot1_fill]]), 
+                aes(x = .data[[input$plot1_x]], weight = PWGTP))
+    
+    # density plot
+    g + geom_density(aes(fill = .data[[input$plot1_fill]]), kernel = "gaussian", alpha = 0.4) +
+      ggtitle(paste0("Density plot of ", x_label)) +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = x_label, y = "Individuals") 
+      #scale_fill_discrete(legend_label) # legend crowds the screen, label too long
+     
+    
+  })
+
+  # ------- Plot Group 2 (Cat vs Num) 
   
   output$bar_plot <- renderPlot({
     # values for labels
@@ -430,7 +608,7 @@ server <- function(input, output, session) {
       filter(variable_name == "ACCESSINET") |>
       select(value)
     
-    g <- ggplot(data = census |> drop_na(FS, ACCESSINET), 
+    g <- ggplot(data = census_subset() |> drop_na(FS, ACCESSINET), 
                 aes(x = FS, weight = PWGTP, fill = ACCESSINET))
     
     # layers (remove the legend from the base layer, keep the legend for the fill)
@@ -443,68 +621,13 @@ server <- function(input, output, session) {
     
   })
   
-  output$scatter_plot <- renderPlot({
-    
-    # VEH: Vehicles available (capacity of 1 ton or less)
-    # VALP: Property Value
-    # AGEP: Age
-    
-    # values for labels
-    x_label <- data_dictionary_names |>
-      filter(variable_name == "INSP") |>
-      select(value)
-    
-    legend_label <- data_dictionary_names |>
-      filter(variable_name == "YRBLT") |>
-      select(value)
-    
-    # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
-    ### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
-    sample_size <- sample(1:nrow(census), 
-                          size = 1000,
-                          replace = TRUE,
-                          prob = census$PWGTP/sum(census$PWGTP))
-    
-    # sample for plotting (##NOTE: pull from the census subset, not the full data)
-    census_sample <- census[sample_size, ]
-    
-    # base object with global assignments
-    g <- ggplot(data = census_sample |> drop_na(AGEP, VALP, VEH), 
-                aes(x = AGEP, y = VALP, color = VEH, weight = PWGTP))
-    
-    g + geom_point() 
-  })
-  
-  output$density_plot <- renderPlot({
-    
-    # values for labels
-    x_label <- data_dictionary_names |>
-      filter(variable_name == "INSP") |>
-      select(value)
-    
-    legend_label <- data_dictionary_names |>
-      filter(variable_name == "YRBLT") |>
-      select(value)
-    
-    # base object with global assignments
-    g <- ggplot(data = census |> drop_na(INSP, YRBLT), aes(x = INSP, weight = PWGTP))
-    
-    # density plot
-    g + geom_density(aes(fill = YRBLT), kernel = "gaussian", alpha = 0.4) +
-      ggtitle("Test Title") +
-      theme(plot.title = element_text(hjust = 0.5)) +
-      labs(x = x_label, y = "Individuals") +
-      scale_fill_discrete(legend_label)
-    
-  })
-  
   output$violin_plot <- renderPlot({
     
-    census_data <- census |>
-      group_by(YRBLT) |>
-      drop_na(YRBLT, INSP) |>
-      summarize(individuals = sum(PWGTP),
-                total = sum(INSP))
+    # census_data <- census |>
+    #   group_by(YRBLT) |>
+    #   drop_na(YRBLT, INSP) |>
+    #   summarize(individuals = sum(PWGTP),
+    #             total = sum(INSP))
     
     # values for labels
     x_label <- data_dictionary_names |>
@@ -516,7 +639,7 @@ server <- function(input, output, session) {
       select(value)
     
     # base object with global assignments
-    g <- ggplot(data = census |> drop_na(INSP, YRBLT), aes(y = INSP, weight = PWGTP))
+    g <- ggplot(data = census_subset() |> drop_na(INSP, YRBLT), aes(y = INSP, weight = PWGTP))
     
     g + geom_violin(aes(x = YRBLT, fill = YRBLT)) +
       ggtitle("Test Title") +
@@ -526,38 +649,6 @@ server <- function(input, output, session) {
     
   })
   
-  output$heatmap_plot <- renderPlot({
-    
-    # VEH: Vehicles available (capacity of 1 ton or less)
-    # VALP: Property Value
-    # AGEP: Age
-    
-    # values for labels
-    x_label <- data_dictionary_names |>
-      filter(variable_name == "") |>
-      select(value)
-    
-    legend_label <- data_dictionary_names |>
-      filter(variable_name == "YRBLT") |>
-      select(value)
-    
-    # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
-    ### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
-    sample_size <- sample(1:nrow(census), 
-                          size = 1000,
-                          replace = TRUE,
-                          prob = census$PWGTP/sum(census$PWGTP))
-    
-    # sample for plotting (##NOTE: pull from the census subset, not the full data)
-    census_sample <- census[sample_size, ]
-    
-    # base object with global assignments
-    g <- ggplot(data = census_sample |> drop_na(AGEP_Grp, VALP, VEH), 
-                aes(x = AGEP_Grp, y = VEH, fill = VALP, weight = PWGTP))
-    
-    g + geom_tile()
-    
-  })
   
   # -------- Data Exploration --------------
   
@@ -588,9 +679,9 @@ server <- function(input, output, session) {
     contentType = "text/csv"
   )
   
-  observe({
-    print(input$summ_types)
-  })
+  # observe({
+  #   print(input$summ_types)
+  # })
 }
 
 

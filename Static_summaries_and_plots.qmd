@@ -639,11 +639,15 @@ g + geom_violin(aes(x = YRBLT, fill = YRBLT)) +
 
 # values for labels
 x_label <- data_dictionary_names |>
-  filter(variable_name == "") |>
+  filter(variable_name == "AGEP_Grp") |>
+  select(value)
+
+y_label <- data_dictionary_names |>
+  filter(variable_name == "VEH") |>
   select(value)
 
 legend_label <- data_dictionary_names |>
-  filter(variable_name == "YRBLT") |>
+  filter(variable_name == "VALP") |>
   select(value)
 
 # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
@@ -657,10 +661,14 @@ sample_size <- sample(1:nrow(census),
 census_sample <- census[sample_size, ]
 
 # base object with global assignments
-g <- ggplot(data = census_sample |> drop_na(Age_Group, VALP, VEH), 
-            aes(x = Age_Group, y = VEH, fill = VALP, weight = PWGTP))
+g <- ggplot(data = census_sample |> drop_na(AGEP_Grp, VALP, VEH), 
+            aes(x = AGEP_Grp, y = VEH, fill = VALP, weight = PWGTP))
 
-g + geom_tile()
+g + geom_tile() +
+  ggtitle(paste0("Heatmap of ", x_label, "\n", " by ", y_label)) +
+      theme(plot.title = element_text(hjust = 0.5)) +
+      labs(x = x_label, y = y_label) +
+      guides(fill = guide_colorbar(title = legend_label))
 
 
 ```

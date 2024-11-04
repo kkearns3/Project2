@@ -12,6 +12,10 @@ cat_vars <- data_dictionary_names |>
                               "HHL", "MV", "SEX", "NATIVITY", "ACCESSINET", "FS", "TYPEHUGQ")) |>
   arrange(value)
 
+# Test: add names to the cat_vars (assign value, i.e. the description as the row names to make referencing the plot variables easier)
+# cat_vars_plots <- as.data.frame(cat_vars)
+# rownames(cat_vars_plots) <- cat_vars_plots[[2]]
+
 # Options for Categorical Subset 1
 cat_sub_1 <- census |>
   filter(!is.na(YRBLT_Grp)) |>
