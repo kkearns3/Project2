@@ -27,7 +27,8 @@ source("helpers.R")
 ui <- fluidPage(
   
   # App title
-  titlePanel("US Census PUMS Sample Data: North Carolina, 2023"),
+  titlePanel(title = "US Census PUMS Sample Data: North Carolina, 2023",
+             windowTitle = "PUMS NC 2023"),
   
   # Sidebar
   sidebarLayout(
@@ -86,7 +87,9 @@ ui <- fluidPage(
                  card(
                    card_header(h2("Download PUMS Data Subset")),
                    fluidRow(
+                     column(width = 11, offset = 1,
                      downloadButton("download_table", "Download")
+                     )
                    ),
                    fluidRow(
                      DT::dataTableOutput("census_table")
@@ -134,22 +137,22 @@ ui <- fluidPage(
                             )),
                    conditionalPanel("input.summ_types.includes('Categorical')",
                      fluidRow(
-                       column(width = 10, offset = 2,
-                              "Categorical Summary (One-Way Contingency Table)",
+                       column(width = 12, 
+                              h3("Categorical Summary (One-Way Contingency Table)"),
                               withSpinner(tableOutput("oneway_cont"))
                               )
                      ),
                      fluidRow(
-                       column(width = 10, offset = 2,
-                              "Categorical Summary (Two-Way Contingency Table)",
+                       column(width = 12, 
+                              h3("Categorical Summary (Two-Way Contingency Table)"),
                               withSpinner(tableOutput("twoway_cont"))
                               )
                      )
                    ),
                    conditionalPanel("input.summ_types.includes('Numeric')",
                      fluidRow(
-                       column(width = 10, offset = 2,
-                              "Numerical Summary",
+                       column(width = 12, 
+                              h3("Numerical Summary"),
                               withSpinner(tableOutput("summary"))
                               )
                      )
@@ -160,6 +163,9 @@ ui <- fluidPage(
                  # Map plots, with controls
                  card(
                    card_header(h3("Map Plots")),
+                   p("Note: X and Y variables are plotted on the heatmap only. ",
+                     "NC Map plots the median of the fill variable only."
+                     ),
                    fluidRow(
                      column(width = 4,
                             selectizeInput("map_x",
@@ -181,19 +187,25 @@ ui <- fluidPage(
                             )
                    ),
                    fluidRow(
-                     # Plot: NC Map
-                     withSpinner(
-                       plotOutput("nc_map"))
+                     column(width = 11, offset = 1,
+                       # Plot: NC Map
+                       withSpinner(
+                         plotOutput("nc_map"))
+                     )
                    ),
                    br(),
                    fluidRow(
-                     # Plot: heatmap
-                     withSpinner(
-                       plotOutput("heatmap_plot"))
+                     column(width = 11, offset = 1,
+                       # Plot: heatmap
+                       withSpinner(
+                         plotOutput("heatmap_plot"))
+                     )
                    )
                    ),
                  card(
                    card_header(h3("Numeric Plots")),
+                   p("Note: Density plot uses only the X and fill variables, as the ",
+                     "Y axis represents the count of individuals in the subset"),
                    fluidRow(
                      column(width = 4,
                             selectizeInput("plot1_x",
@@ -216,19 +228,25 @@ ui <- fluidPage(
                    ),
                    br(),
                    fluidRow(
-                     # Plot: kernel density plot
-                     withSpinner(
-                       plotOutput("density_plot"))
+                     column(width = 11, offset = 1,
+                       # Plot: kernel density plot
+                       withSpinner(
+                         plotOutput("density_plot"))
+                     )
                    ),
                    br(),
                    fluidRow(
-                     # Plot: scatter plot
-                     withSpinner(
-                       plotOutput("scatter_plot"))
+                     column(width = 11, offset = 1,
+                       # Plot: scatter plot
+                       withSpinner(
+                         plotOutput("scatter_plot"))
+                     )
                    )
                  ),
                  card(
                    card_header(h3("Categorical Plots")),
+                   p("Note: Bar plot uses only the X and fill variables, as the ",
+                     "Y axis represents the count of individuals in the subset"),
                    fluidRow(
                      column(width = 3,
                             selectizeInput("plot2_x",
@@ -257,21 +275,24 @@ ui <- fluidPage(
                    ),
                    br(),
                    fluidRow(
-                     # Plot: Bar with facet
-                     withSpinner(
-                       plotOutput("bar_plot"))
+                     column(width = 11, offset = 1,
+                       # Plot: Bar with facet
+                       withSpinner(
+                         plotOutput("bar_plot"))
+                     )
                    ),
                    fluidRow(
-                     column(
-                       width = 10, offset = 2,
+                     column(width = 10, offset = 2,
                        uiOutput("facet_info")
                      )
                    ),
                    br(),
                    fluidRow(
-                     # Plot: violin plot
-                     withSpinner(
-                       plotOutput("violin_plot"))
+                     column(width = 11, offset = 1,
+                       # Plot: violin plot
+                       withSpinner(
+                         plotOutput("violin_plot"))
+                     )
                    )
                   )
                 )
@@ -496,10 +517,10 @@ server <- function(input, output, session) {
     # ------- Plot Group 0 (Maps) 
     
     # get geometric info for the PUMAs
-    pumas <- tigris::pumas(state = "NC", 
-                           year = "2023", 
-                           progress_bar = FALSE)
-    
+    # pumas <- tigris::pumas(state = "NC", 
+    #                        year = "2023", 
+    #                        progress_bar = FALSE)
+    # 
     # aggregate census data
     census_aggregate <- census_subset() |>
       group_by(PUMA) |>
@@ -537,16 +558,6 @@ server <- function(input, output, session) {
       filter(variable_name == input$map_fill) |>
       select(value)
     
-    # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
-    ### NOTE: this will need to be pulled from the subset data, not the full data when that is ready.
-    # sample_size <- sample(1:nrow(census_subset()), 
-    #                       size = 1000,
-    #                       replace = TRUE,
-    #                       prob = census_subset()$PWGTP/sum(census_subset()$PWGTP))
-    # 
-    # # sample for plotting (##NOTE: pull from the census subset, not the full data)
-    # census_sample <- census_subset()[sample_size, ]
-    
     # base object with global assignments
     g <- ggplot(data = census_subset() |> drop_na(.data[[input$map_x]], 
                                                   .data[[input$map_y]], 
@@ -557,18 +568,13 @@ server <- function(input, output, session) {
     g + geom_tile() +
       ggtitle(paste0("Heatmap of ", x_label, "\n", " by ", y_label)) +
       theme(plot.title = element_text(hjust = 0.5)) +
-      labs(x = x_label, y = y_label) +
-      guides(fill = guide_colorbar(title = legend_label))
+      labs(x = x_label, y = y_label, fill = legend_label) 
     
   })
   
   # ------- Plot Group 1 (Num vs Num) 
 
   output$scatter_plot <- renderPlot({
-    
-    # VEH: Vehicles available (capacity of 1 ton or less)
-    # VALP: Property Value
-    # AGEP: Age
     
     # values for labels
     x_label <- data_dictionary_names |>
@@ -589,7 +595,7 @@ server <- function(input, output, session) {
                           replace = TRUE,
                           prob = census_subset()$PWGTP/sum(census_subset()$PWGTP))
     
-    # sample for plotting (##NOTE: pull from the census subset, not the full data)
+    # sample for plotting
     census_sample <- census_subset()[sample_size, ]
     
     # base object with global assignments
@@ -602,9 +608,7 @@ server <- function(input, output, session) {
     g + geom_point() +
       ggtitle(paste0("Scatter plot of ", x_label, "\n", " by ", y_label)) + 
       theme(plot.title = element_text(hjust = 0.5)) +
-      labs(x = x_label, y = y_label) +
-      guides(fill = guide_colorbar(title = legend_label))
-      # scale_fill_discrete(legend_label) # does legend need this?
+      labs(x = x_label, y = y_label, color = legend_label) 
   })
   
   output$density_plot <- renderPlot({
@@ -627,8 +631,8 @@ server <- function(input, output, session) {
     g + geom_density(aes(fill = .data[[input$plot1_fill]]), kernel = "gaussian", alpha = 0.4) +
       ggtitle(paste0("Density plot of ", x_label)) +
       theme(plot.title = element_text(hjust = 0.5)) +
-      labs(x = x_label, y = "Individuals") 
-      #scale_fill_discrete(legend_label) # legend crowds the screen, label too long
+      labs(x = x_label, y = "Individuals") +
+      scale_fill_discrete(legend_label) # legend crowds the screen, label too long
      
     
   })
@@ -660,7 +664,8 @@ server <- function(input, output, session) {
       ggtitle(paste0(x_label, "\n", " filled by ", legend_label, "\n",
                      "Faceted by ", facet_label)) +
       theme(plot.title = element_text(hjust = 0.5)) +
-      labs(x = x_label) +
+      labs(x = x_label, y = "Individuals") +
+      scale_x_discrete(guide = guide_axis(angle = 45)) +
       scale_fill_discrete(legend_label) +
       facet_wrap(vars(.data[[input$plot2_facet]]))
     
@@ -697,6 +702,7 @@ server <- function(input, output, session) {
       ggtitle(paste0("Violin plot of ", x_label, "\n", " by ", y_label)) +
       theme(plot.title = element_text(hjust = 0.5)) +
       labs(x = x_label, y = y_label) +
+      scale_x_discrete(guide = guide_axis(angle = 45)) +
       scale_fill_discrete(legend_label)
     
   })
@@ -777,6 +783,86 @@ server <- function(input, output, session) {
     },
     contentType = "text/csv"
   )
+  
+  #-------------Errors and Alerts
+  
+  # send alerts and/or update widgets when 
+  observeEvent(
+    c(input$num_var_1, input$num_var_2,
+      input$summ_cat_1, input$summ_cat_2,
+      input$map_x, input$map_y,
+      input$plot1_x, input$plot1_y, 
+      input$plot2_x, input$plot2_y, input$plot_fill), {
+    
+      # if numeric subset variables are the same (and not equal to "(none)", send
+      # shiny alert, and reset 2nd variable to "(none)")
+      if (input$num_var_1 == input$num_var_2 & input$num_var_1 != "(none)") {
+        # create alert
+        shinyalert(title = "Oops!",
+                   text = "Please choose two different variables to subset",
+                   type = "warning")
+      
+        # reset slider for 2nd variable
+        updateSliderInput(session,
+                          "num_var_2",
+                          value = "(none)")
+      }
+    
+      # two-way contingency table: prevent user from selecting the same 2 categorical variables
+      if (input$summ_cat_1 == input$summ_cat_2) {
+        # create alert
+        shinyalert(title = "",
+                   text = "Please choose two different variables for the contingency table",
+                   type = "warning")
+        
+        # create updated list of choices, excluding the 1st cat variable selection
+        valid_choices <- cat_vars[[1]]
+        valid_choices <- valid_choices[-which(valid_choices == input$summ_cat_1)]
+        
+        # select a different value in the widget (not removing from the list, since that choice
+        # would remain missing unless added back)
+        updateSelectizeInput(session,
+                             "summ_cat_2",
+                             selected = valid_choices[1])
+      }
+    
+        # heatmap: advise user to select different variables
+        if (input$map_x == input$map_y) {
+          # create alert
+          shinyalert(title = "Heatmap look funny?",
+                     text = "Choosing different variables for X and Y may be more informative!",
+                     type = "info")
+          
+          # might need to change value...? test more...
+        }
+        
+        # scatterplot: advise user to select different variables
+        if (input$plot1_x == input$plot1_y) {
+          # create alert
+          shinyalert(title = "Scatterplot look funny?",
+                     text = "Choosing different variables for X and Y may be more informative!",
+                     type = "info")
+          
+          # might need to change value...? test more...
+        }
+        
+        # Bar/Violin: advise user to select different variables
+        if (input$plot2_x == input$plot2_fill |
+            input$plot2_x == input$plot2_facet |
+            input$plot2_fill == input$plot2_facet) {
+          
+          # create alert
+          shinyalert(title = "Bar/Violin Plots look funny?",
+                     text = "Choosing different variables for X, Fill, and Facet may be more informative!",
+                     type = "info")
+          
+          # might need to change value...? test more...
+        }
+          
+
+      
+  })
+  
   
 }
 

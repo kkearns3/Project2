@@ -552,8 +552,12 @@ x_label <- data_dictionary_names |>
   filter(variable_name == "INSP") |>
   select(value)
 
+y_label <- data_dictionary_names |>
+  filter(variable_name == "VALP") |>
+  select(value)
+
 legend_label <- data_dictionary_names |>
-  filter(variable_name == "YRBLT") |>
+  filter(variable_name == "VEH") |>
   select(value)
 
 # take sample of the data (1000 points) - note: referenced HW7 app.R file for help with setting up the sample size correctly 
@@ -570,7 +574,9 @@ census_sample <- census[sample_size, ]
 g <- ggplot(data = census_sample |> drop_na(AGEP, VALP, VEH), 
             aes(x = AGEP, y = VALP, color = VEH, weight = PWGTP))
 
-g + geom_point() 
+g + geom_point() +
+  labs(x = x_label, y = y_label, caption = paste0("VEH", ": ", legend_label)) +
+  theme(plot.caption = element_text(face="italic"))
 
 ```
 

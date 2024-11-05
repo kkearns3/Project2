@@ -5,6 +5,12 @@ data_dictionary_names <- readRDS("dd_names.rds")
 data_dictionary_values <- readRDS("dd_values.rds")
 census <- readRDS("census.rds")
 
+# NC map PUMAS geographic table 
+pumas <- tigris::pumas(state = "NC", 
+                       year = "2023", 
+                       progress_bar = FALSE)
+
+
 #### Variable lists for widgets
 
 # Categorical variables for summarizing/plotting
