@@ -60,6 +60,8 @@ housing_data <- unzip("data/csv_hnc.zip", files = c("psam_h37.csv")) |>
   read_csv(col_types = cols(.default = "c"),
            show_col_types = FALSE) |>
   select(-RT)
+
+housing_data |> group_by(SERIALNO) |> summarize(count = n()) |> filter(count > 1)
 ```
 
 **Combine data**
