@@ -70,11 +70,20 @@ ui <- fluidPage(
                   value = c(0, 100)
                   ),
       actionButton("run_subset", "Run Subset",
-                   style = "color: white; background-color: SteelBlue;")
+                   style = "color: white; background-color: SteelBlue;"),
+      br(),
+      h3("Data Exploration Options"),
+      checkboxGroupInput("view_exploration",
+                         "Select Items to View",
+                         choices = c("Summaries",
+                                     "Map Plots",
+                                     "Numeric Plots",
+                                     "Categorical Plots"),
+                         selected = c("Summaries"))
       
     ),
     mainPanel(
-      tabsetPanel(
+      tabsetPanel(selected = "About",
         tabPanel("About",
                  fluidRow(
                    includeMarkdown("include.md")
@@ -99,6 +108,7 @@ ui <- fluidPage(
         ),
         
         tabPanel("Data Exploration",
+              conditionalPanel("input.view_exploration.includes('Summaries')",
                  card(
                    card_header(h2("Summaries")),
                    fluidRow(
@@ -157,9 +167,11 @@ ui <- fluidPage(
                               )
                      )
                    )
-                 ),
-                 h2("Plots"),
-                 
+                 )
+              )
+                 ,
+              conditionalPanel("input.view_exploration.includes('Map Plots')",
+                 h2("Map Plots"),
                  # Map plots, with controls
                  card(
                    card_header(h3("Map Plots")),
@@ -201,7 +213,9 @@ ui <- fluidPage(
                          plotOutput("heatmap_plot"))
                      )
                    )
-                   ),
+                   )
+                 ),
+              conditionalPanel("input.view_exploration.includes('Numeric Plots')",
                  card(
                    card_header(h3("Numeric Plots")),
                    p("Note: Density plot uses only the X and fill variables, as the ",
@@ -242,7 +256,9 @@ ui <- fluidPage(
                          plotOutput("scatter_plot"))
                      )
                    )
+                 )
                  ),
+              conditionalPanel("input.view_exploration.includes('Categorical Plots')",
                  card(
                    card_header(h3("Categorical Plots")),
                    p("Note: Bar plot uses only the X and fill variables, as the ",
@@ -292,9 +308,11 @@ ui <- fluidPage(
                        # Plot: violin plot
                        withSpinner(
                          plotOutput("violin_plot"))
+                     
                      )
                    )
                   )
+              )
                 )
         )
         )
@@ -442,8 +460,7 @@ server <- function(input, output, session) {
                                           OCPIP <= input$num_range_2[2]) else .} %>%
       {if(col_name_2 == "PINCP") filter(., PINCP >= input$num_range_2[1] & 
                                           PINCP <= input$num_range_2[2]) else .}
-    
-    #"INSP", "AGEP", "MRGP", "VALP", "HINCP", "OCPIP", "PINCP"
+
   },
   ignoreNULL = FALSE)
   
@@ -463,14 +480,6 @@ server <- function(input, output, session) {
   })
   
   output$twoway_cont <- renderTable({
-    
-    # # two-way contingency table
-    # census_subset() |>
-    #   group_by(.data[[input$summ_cat_1]], .data[[input$summ_cat_2]]) |>
-    #   filter(!is.na(.data[[input$summ_cat_1]]) & !is.na(.data[[input$summ_cat_2]])) |>
-    #   summarize(individuals = sum(PWGTP)) |>
-    #   pivot_wider(names_from = .data[[input$summ_cat_2]], values_from = individuals)
-    # 
    
     # two-way contingency table
     cont_table <- census_subset() |>
@@ -487,8 +496,7 @@ server <- function(input, output, session) {
   })
   
   output$summary <- renderTable({
-    # INSP: Fire/hazard/flood insurance (yearly amount, use ADJHSG to adjust INSP to constant dollars)
-    
+  
     # main stats
     summary_main <- census_subset() |>
       group_by(.data[[input$summ_cat_1]]) |>
@@ -516,11 +524,6 @@ server <- function(input, output, session) {
   
     # ------- Plot Group 0 (Maps) 
     
-    # get geometric info for the PUMAs
-    # pumas <- tigris::pumas(state = "NC", 
-    #                        year = "2023", 
-    #                        progress_bar = FALSE)
-    # 
     # aggregate census data
     census_aggregate <- census_subset() |>
       group_by(PUMA) |>
@@ -673,12 +676,6 @@ server <- function(input, output, session) {
   
   output$violin_plot <- renderPlot({
     
-    # census_data <- census |>
-    #   group_by(YRBLT) |>
-    #   drop_na(YRBLT, INSP) |>
-    #   summarize(individuals = sum(PWGTP),
-    #             total = sum(INSP))
-    
     # values for labels
     x_label <- data_dictionary_names |>
       filter(variable_name == input$plot2_x) |>
@@ -749,11 +746,6 @@ server <- function(input, output, session) {
                    " facets.")))
     
   })
-  
-  # observe({
-  #   print(paste0("facet_counts$original: ", facet_counts$original))
-  #   print(paste0("facet_counts$displayed: ", facet_counts$displayed))
-  # })
   
   # -------- Data Exploration --------------
   
