@@ -7,8 +7,12 @@
 library(shiny)
 library(shinyalert)
 library(bslib)
-library(tidyverse)
-library(readr)
+#library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tidyselect)
+#library(readr)
 library(markdown)
 library(shinycssloaders)
 
@@ -73,7 +77,7 @@ ui <- fluidPage(
                    style = "color: white; background-color: SteelBlue;"),
       br(),
       h3("Data Exploration Options"),
-      checkboxGroupInput("view_exploration",
+      radioButtons("view_exploration",
                          "Select Items to View",
                          choices = c("Summaries",
                                      "Map Plots",
@@ -347,11 +351,6 @@ server <- function(input, output, session) {
                          .names = "{.fn}")) 
     }
     
-    # print(slider_range)
-    # print(input$num_var_2)
-    # print(col_name)
-    # print(test)
-    
     updateSliderInput(session, "num_range_1",
                       min = slider_range$min_val,
                       max = slider_range$max_val,
@@ -382,11 +381,6 @@ server <- function(input, output, session) {
                          .names = "{.fn}")) 
     }
 
-    # print(slider_range)
-    # print(input$num_var_2)
-    # print(col_name)
-    # print(test)
-
     updateSliderInput(session, "num_range_2",
                       min = slider_range$min_val,
                       max = slider_range$max_val,
@@ -396,9 +390,6 @@ server <- function(input, output, session) {
   # subset data when action button is pressed
   census_subset <- eventReactive(input$run_subset, {
     
-    observe({
-      print(input$map_x)
-    })
     # cat subset 1 (year_built)
     if(input$year_built == "All") {
       YRBLT_vals <- cat_sub_1[[2]]
@@ -707,7 +698,7 @@ server <- function(input, output, session) {
   # create a reactive Values object for holding counts of facets in the original subset, and in the faceted subset. To be passed to the conditional message informing user about which facets are displayed
   facet_counts <- reactiveValues(original = 0, displayed = 0)
   
-  # limit number of facets - generate data set with 6 or fewer levels
+  # limit number of facets - generate data set with 4 or fewer levels
   # (currently for "bar_plot")
   census_facets <- reactive({
     
@@ -721,10 +712,10 @@ server <- function(input, output, session) {
     # assign original subset to reactive Values object
     facet_counts$original <- length(facets[[1]])
     
-    # if more than 6, isolate subsets to the 6 most common levels
-    if (facet_counts$original > 6) {
+    # if more than 4, isolate subsets to the 4 most common levels
+    if (facet_counts$original > 4) {
       census_facets <- census_subset() |>
-        filter(.data[[input$plot2_facet]] %in% facets[[1]][1:6])
+        filter(.data[[input$plot2_facet]] %in% facets[[1]][1:4])
     } else {
       census_facets <- census_subset()
     }
@@ -740,7 +731,7 @@ server <- function(input, output, session) {
   
   output$facet_info <- renderUI({
          
-    em(HTML(paste0("Note: Plots are limited to a maximum of 6 facets.<br>",
+    em(HTML(paste0("Note: Plots are limited to a maximum of 4 facets.<br>",
                    "Your selection has omitted ", 
                    facet_counts$original - facet_counts$displayed, 
                    " facets.")))
@@ -753,16 +744,24 @@ server <- function(input, output, session) {
     
     # keep only relevant columns in census data
     keep_cols <- append(cat_vars$variable_name, num_vars$variable_name) |>
-      append(c("PWGTP", "YRBLT")) 
-    
+      append(c("PWGTP", "YRBLT"))
+
     # data table object for download tab
     census_display <- census_subset() |>
       select(any_of(keep_cols))
+    
+    # census_display <- census_subset() |>
+    #   select(any_of(c("AGEP_Grp", "BLD_Grp", "TEN", "VEH", "YRBLT_Grp", "HHLDRHISP",
+    #   "HHL", "MV", "SEX", "NATIVITY", "ACCESSINET", "FS", "TYPEHUGQ", "PWGTP", "YRBLT")))
     
   })
   
   # new subset created specifically for the csv download (the table created by DT::renderDataTable seems to be creating the file as html)
   census_download <- reactive({
+    
+    keep_cols <- append(cat_vars$variable_name, num_vars$variable_name) |>
+      append(c("PWGTP", "YRBLT"))
+    
     census_subset() |>
       select(any_of(keep_cols)) 
   })

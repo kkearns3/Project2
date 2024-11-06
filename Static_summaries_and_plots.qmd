@@ -320,12 +320,25 @@ data_dictionary_values |>
 
 ## Save .rds files for App Access
 
+Update: 11/6/2024 - app is using too much memory. Going to try to reduce file size for the census data and see if that reduces the memory usage
+
+```{r}
+need_cols <- c("AGEP_Grp", "BLD_Grp", "TEN", "VEH", "YRBLT_Grp", "HHLDRHISP",
+               "HHL", "MV", "SEX", "NATIVITY", "ACCESSINET", "FS", "TYPEHUGQ",
+               "INSP", "AGEP", "MRGP", "VALP", "HINCP", "OCPIP", "PINCP",
+               "BLD", "YRBLT", "PWGTP", "PUMA")
+
+census_new <- census |>
+  select(PWGTP1:PWGTP80, any_of(need_cols))
+```
+
+
 Save required tables as .rds files in the active directory
 
 ```{r}
 saveRDS(data_dictionary_names, "dd_names.rds")
 saveRDS(data_dictionary_values, "dd_values.rds")
-saveRDS(census, "census.rds")
+saveRDS(census_new, "census.rds")
 ```
 
 

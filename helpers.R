@@ -46,38 +46,39 @@ num_vars <- data_dictionary_names |>
   filter(variable_name %in% c("INSP", "AGEP", "MRGP", "VALP", "HINCP", "OCPIP", "PINCP")) |>
   arrange(value)
   
+# ----- Don't need app to have access to the data-cleaning functions...commented them out-----
 
-# Helper function for assigning correct data type, and reassigning raw values to descriptive values using the PUMS data dictionary
-
-clean_census_columns <- function(data_column) {
-    
-  # get variable name for column that needs to be cleaned
-  var_name <- colnames(data_column)
-  
-  # pull relevant key-value pairs from data dictionary
-  column_dictionary <- data_dictionary_values |>
-    filter(variable_name == var_name)
-  
+# Helper function for assigning correct data type, and reassigning raw values to descriptive values using the PUMS data dictionary 
+# 
+# clean_census_columns <- function(data_column) {
+#     
+#   # get variable name for column that needs to be cleaned
+#   var_name <- colnames(data_column)
+#   
+#   # pull relevant key-value pairs from data dictionary
+#   column_dictionary <- data_dictionary_values |>
+#     filter(variable_name == var_name)
+#   
   # join data dictionary to get data type and descriptive values - actually I don't need to left join, but save this for now since this shows how to join via a variable rather than a string literal
   # data_column <- data_column |>
   #   left_join(column_dictionary, by = setNames("value", var_name))
 
-  # recast columns that should be numeric
-  if (column_dictionary["data_type"] |> distinct() == "N") {
-    data_column[[var_name]] <- as.numeric(data_column[[var_name]])
-  }
-  
-  # if it's a categorical variable, change to factors
-  #    - exclude the columns where value and max_value are not the same, as these are ranges and we don't want to overwrite those values
-  if (column_dictionary["data_type"] |> distinct() == "C" &
-      all(column_dictionary$value == column_dictionary$value_max)) {
-    data_column[var_name] <- factor(data_column[[var_name]],
-                                    levels = column_dictionary$value,
-                                    labels = column_dictionary$data_label)
-  }
-  
-  return(data_column)
-}
+  # # recast columns that should be numeric
+  # if (column_dictionary["data_type"] |> distinct() == "N") {
+  #   data_column[[var_name]] <- as.numeric(data_column[[var_name]])
+  # }
+#   
+#   # if it's a categorical variable, change to factors
+#   #    - exclude the columns where value and max_value are not the same, as these are ranges and we don't want to overwrite those values
+#   if (column_dictionary["data_type"] |> distinct() == "C" &
+#       all(column_dictionary$value == column_dictionary$value_max)) {
+#     data_column[var_name] <- factor(data_column[[var_name]],
+#                                     levels = column_dictionary$value,
+#                                     labels = column_dictionary$data_label)
+#   }
+#   
+#   return(data_column)
+# }
 
 
 # calculate weighted mean from vectors

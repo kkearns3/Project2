@@ -23,6 +23,9 @@ This app allows a user to access Public Use Microdata Sample (PUMS) data for the
   + Mean and median were written with their standard mathematical definitions
   + All error statistics were written utilizing the formulas provided in the [User Guide](https://www2.census.gov/programs-surveys/acs/tech_docs/pums/2023ACS_PUMS_User_Guide.pdf)<sup>3</sup>. The variance is given by: $VAR(x) = \frac{4}{80} \sum_{k=1}^{80} (x_r - x)^2$, where $x_r$ are the 80 replicate person-weights (PWGTP1-PWGTP80), and $x$ is the value of the estimate (I elected to base the error on the mean)
   + Thereafter, the standard error is $SE = \sqrt{VAR(x)}$, and the margin of error using a 90% confidence level is $MOE = SE * 1.645$
+- In order to get the app to work with the free tier of shinyapps.io, I had to bring the memory usage down below 1 GB of RAM. 
+  + I reduced the size of the census.rds file substantially by limiting the columns in the data set, reducing them from over 500 to just the columns that were needed for the app, and any other columns needed for computations or plots (i.e. the replicate person-weights, and the PUMA column that designates where individuals live within the state)
+  + I also changed the view on the Data Exploration tab so that instead of selecting which summaries and plots are visible using checkboxes, I switched them to radio buttons so only one group can be displayed at a time
 
 
 ## Future Releases
