@@ -97,8 +97,11 @@ ui <- fluidPage(
                      downloadButton("download_table", "Download")
                      )
                    ),
+                   br(),
                    fluidRow(
+                     column(width = 11, offset = 1,
                      DT::dataTableOutput("census_table")
+                     )
                    )
                  )
                  

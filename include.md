@@ -4,7 +4,11 @@ title: "About"
 
 # Overview
 
-The purpose of this app is to investigate the Public Use Microdata Sample (PUMS) from the American Community Survey (ACS), which is conducted yearly by the U.S. Census Bureau. The app contains data from North Carolina for the year 2023. Summaries and plots, available on the Data Exploration tab, are the main analytical features of the app. Two categorical variables are available for subsetting via the first two widgets on the sidebar. The user may also select up to two numerical variables for subsetting using the third and fourth widgets. The specific groups of plots and summaries that are visible are controlled by the final widget on the sidebar.
+The purpose of this app is to investigate the Public Use Microdata Sample (PUMS) from the American Community Survey (ACS), which is conducted yearly by the U.S. Census Bureau. The app contains data from North Carolina for the year 2023. 
+
+Summaries and plots, available on the Data Exploration tab, are the main analytical features of the app. Two categorical variables are available for subsetting via the first two widgets on the sidebar. The user may also select up to two numerical variables for subsetting using the third and fourth widgets. The specific groups of plots and summaries that are visible are controlled by the final widget on the sidebar.
+
+The user may also download a csv file from the Data Download tab. This file is limited to the variables that have been provided for analysis within the app. This is to make the file more usable, as the full PUMS data with the housing and person files combined contain over 500 variables.
 
 ## Data
 
