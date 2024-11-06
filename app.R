@@ -87,10 +87,7 @@ ui <- fluidPage(
         tabPanel("About",
                  fluidRow(
                    includeMarkdown("include.md")
-                 ),
-                 br(),
-                 fluidRow("More text?")
-                 
+                 )
         ),
         tabPanel("Data Download",
                  card(

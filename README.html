@@ -406,19 +406,19 @@ that doesn’t necessarily reveal a ton when they have many different
 levels (e.g. YRBLT)</li>
 <li>Since the data is weighted by the person-weight variable (PWGTP), I
 wrote several functions to correctly calculate common statistics, namely
-mean, median, variance, standard error, and margin of error
+mean, median, variance, standard error, and margin of error.
 <ul>
 <li>Mean and median were written with their standard mathematical
 definitions</li>
-<li>Variance was calculated based on the variance formula provided in
+<li>All error statistics were written utilizing the formulas provided in
 the <a href="https://www2.census.gov/programs-surveys/acs/tech_docs/pums/2023ACS_PUMS_User_Guide.pdf">User
-Guide</a><sup>3</sup>. The formula is given by: <span class="math inline">\(VAR(x) = \frac{4}{80} \sum_{k=1}^{80} (x_r -
+Guide</a><sup>3</sup>. The variance is given by: <span class="math inline">\(VAR(x) = \frac{4}{80} \sum_{k=1}^{80} (x_r -
 x)^2\)</span>, where <span class="math inline">\(x_r\)</span> are the 80
 replicate person-weights (PWGTP1-PWGTP80), and <span class="math inline">\(x\)</span> is the value of the estimate (I elected
 to base the error on the mean)</li>
 <li>Thereafter, the standard error is <span class="math inline">\(SE =
 \sqrt{VAR(x)}\)</span>, and the margin of error using a 90% confidence
-leel is <span class="math inline">\(MOE = SE * 1.645\)</span></li>
+level is <span class="math inline">\(MOE = SE * 1.645\)</span></li>
 </ul></li>
 </ul>
 </div>
@@ -426,14 +426,18 @@ leel is <span class="math inline">\(MOE = SE * 1.645\)</span></li>
 <h2>Future Releases</h2>
 <p>While future releases are not planned, potential improvements can be
 made with a reasonable amount of edits. Such improvements are outside
-the scope of this project, but they include: - Expanding the analysis to
-additional states and/or years - Accessing data through an API call,
-allowing customization of which columns are included - Designing more
-custom data fields from existing data, e.g. determining geographical
-movements of individuals through analysis of which PUMA they work in or
-previously lived in vs. where they live now - Further customization of
-summaries and plots to give the user more control over the analyses they
-conduct with the data</p>
+the scope of this project, but they include:</p>
+<ul>
+<li>Expanding the analysis to additional states and/or years</li>
+<li>Accessing data through an API call, allowing customization of which
+columns are included</li>
+<li>Designing more custom data fields from existing data,
+e.g. determining geographical movements of individuals through analysis
+of which PUMA they work in or previously lived in vs. where they live
+now</li>
+<li>Further customization of summaries and plots to give the user more
+control over the analyses they conduct with the data</li>
+</ul>
 <hr />
 <ol style="list-style-type: decimal">
 <li>U.S. Census Bureau. <em>American Community Survey 2023 1-YEAR: PUMS
