@@ -22,6 +22,7 @@ options(spinner.type = 8)
 # Read required files
 data_dictionary_names <- readRDS("dd_names.rds")
 census <- readRDS("census.rds")
+#pumas <- readRDS("pumas.rds")
 
 # source helpers script
 source("helpers.R")

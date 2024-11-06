@@ -4,10 +4,11 @@
 data_dictionary_names <- readRDS("dd_names.rds")
 data_dictionary_values <- readRDS("dd_values.rds")
 census <- readRDS("census.rds")
+#pumas <- readRDS("pumas.rds")
 
-# NC map PUMAS geographic table 
-pumas <- tigris::pumas(state = "NC", 
-                       year = "2023", 
+# # NC map PUMAS geographic table 
+pumas <- tigris::pumas(state = "NC",
+                       year = "2023",
                        progress_bar = FALSE)
 
 
@@ -141,25 +142,26 @@ census_error <- function(df, group_var){
   # get necessary vectors
   var <- df |> select({{group_var}})
   weight <- df |> select(PWGTP)
-  rep_weights <- df |> select(PWGTP1:PWGTP80)
+  rep_weights <- df |> select(PWGTP1:PWGTP10)
   
   # main estimate of the mean based on the weight
   estimate <- census_mean(var, weight)
   
-  # same estimate on each of the 80 replicate weights
+  # same estimate on each of the 80 replicate weights - reduced to 10 to improve memory usage
   estimate_r <- rep_weights |>
-    summarize(across(PWGTP1:PWGTP80, \(x) census_mean(var, x)))
+    summarize(across(PWGTP1:PWGTP10, \(x) census_mean(var, x)))
   
   # calculate the squared differences between the estimate and the replicated estimates
   squared_diffs <- estimate_r |>
-    mutate(across(PWGTP1:PWGTP80, 
+    mutate(across(PWGTP1:PWGTP10, 
                   \(x) (estimate - x)^2,
                   .names = "sqdiff_{.col}")) 
   
-  # take the sum, multiply by 4/80 to create vector of variances
+  # take the sum, multiply by 4/80 to create vector of variances - since I'm only using 10 replications,
+  # I've changed this to 4/10
   variance <- squared_diffs |>
     select(starts_with("sqdiff_")) |>
-    apply(MARGIN = 1, FUN = \(x) sum(x)*(4/80))
+    apply(MARGIN = 1, FUN = \(x) sum(x)*(4/10))
   
   # add variance to a data frame
   error <- tibble(variance = variance)

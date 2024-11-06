@@ -26,6 +26,7 @@ This app allows a user to access Public Use Microdata Sample (PUMS) data for the
 - In order to get the app to work with the free tier of shinyapps.io, I had to bring the memory usage down below 1 GB of RAM. 
   + I reduced the size of the census.rds file substantially by limiting the columns in the data set, reducing them from over 500 to just the columns that were needed for the app, and any other columns needed for computations or plots (i.e. the replicate person-weights, and the PUMA column that designates where individuals live within the state)
   + I also changed the view on the Data Exploration tab so that instead of selecting which summaries and plots are visible using checkboxes, I switched them to radio buttons so only one group can be displayed at a time
+  + Number of replicate person-weights (PWGTP1-PWGTP80) have been reduced from 80 to 10 replicate values, so this further reduces the number of columns in the data set, and also limits the number of computations the MOE calculation is doing
 
 
 ## Future Releases

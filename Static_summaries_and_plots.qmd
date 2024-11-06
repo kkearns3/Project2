@@ -329,7 +329,7 @@ need_cols <- c("AGEP_Grp", "BLD_Grp", "TEN", "VEH", "YRBLT_Grp", "HHLDRHISP",
                "BLD", "YRBLT", "PWGTP", "PUMA")
 
 census_new <- census |>
-  select(PWGTP1:PWGTP80, any_of(need_cols))
+  select(any_of(need_cols), PWGTP1:PWGTP10)
 ```
 
 
@@ -339,6 +339,14 @@ Save required tables as .rds files in the active directory
 saveRDS(data_dictionary_names, "dd_names.rds")
 saveRDS(data_dictionary_values, "dd_values.rds")
 saveRDS(census_new, "census.rds")
+
+# also do this with pumas to try to avoid a call to tigris
+# NC map PUMAS geographic table 
+pumas <- tigris::pumas(state = "NC", 
+                       year = "2023", 
+                       progress_bar = FALSE)
+
+saveRDS(pumas, "pumas.rds")
 ```
 
 

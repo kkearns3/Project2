@@ -1,0 +1,12 @@
+archive/data/csv_pnc.zip
+archive/dataMELBOURNE_HOUSE_PRICES_LESS.csv
+archive/data/Melbourne_housing_FULL.csv
+archive/helpers.R
+archive/testing.R
+data/1950_census-hi.jpg
+ignore/App Layout.txt
+Project2_deploy/app.R
+Project2_deploy/census.rds
+Project2_deploy/data/1950_census-hi-resized.png
+Static_summaries_and_plots_files/libs/quarto-html/tippy.umd.min.js
+testing.R
