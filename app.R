@@ -150,6 +150,11 @@ ui <- fluidPage(
                                           choices = num_vars[[1]],
                                           selected = "INSP")
                             )),
+                 fluidRow(
+                   column(width = 11, offset = 1,
+                   em("Note: Numeric variable is input into the numeric summary only.")
+                   )
+                 ),
                    conditionalPanel("input.summ_types.includes('Categorical')",
                      fluidRow(
                        column(width = 12, 
@@ -167,7 +172,7 @@ ui <- fluidPage(
                    conditionalPanel("input.summ_types.includes('Numeric')",
                      fluidRow(
                        column(width = 12, 
-                              h3("Numerical Summary"),
+                              h3("Numeric Summary"),
                               withSpinner(tableOutput("summary"))
                               )
                      )
@@ -464,7 +469,7 @@ server <- function(input, output, session) {
       group_by(get(input$summ_cat_1)) |>
       filter(!is.na(get(input$summ_cat_1))) |>
       summarize(individuals = sum(PWGTP)) 
-    
+
     # rename column so it provides the variable name
     names(cont_table)[1] <- input$summ_cat_1 
     
